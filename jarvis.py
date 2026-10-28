@@ -15,6 +15,8 @@ import operations
 import autonomous
 import agent
 import local_model
+import research_api
+import managed_bots
 import memory_store
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -198,6 +200,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if autonomous.handle(self):
             return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
+            return
         if agent.handle(self):
             return
         if self.path == "/health":
@@ -232,6 +238,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if autonomous.handle(self):
             return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
+            return
         if agent.handle(self):
             return
         if not self.authorized():
@@ -262,6 +272,10 @@ class Handler(BaseHTTPRequestHandler):
         if operations.handle(self):
             return
         if autonomous.handle(self):
+            return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
             return
         if agent.handle(self):
             return
