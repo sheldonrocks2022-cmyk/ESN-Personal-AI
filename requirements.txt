@@ -1,2 +1,3 @@
 cryptography>=44,<48
 # Optional Discord integration: pip install "discord.py>=2.5,<3"
+# Optional for raster PNG logo export: pip install 'cairosvg>=2.8,<3'
