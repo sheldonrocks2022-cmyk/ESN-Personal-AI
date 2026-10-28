@@ -1,0 +1,2 @@
+cryptography>=44,<48
+# Optional Discord integration: pip install "discord.py>=2.5,<3"
