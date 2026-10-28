@@ -28,7 +28,7 @@ COOKIE_SECURE = os.environ.get('ESN_COOKIE_SECURE', '1') == '1'
 SESSION_TTL = 1800
 MAX_AUTH_ATTEMPTS = 5
 LOCKOUT_SECONDS = 900
-KINDS = {'website', 'discord_bot', 'github', 'stripe', 'pterodactyl', 'spaceship', 'other'}
+KINDS = {'website', 'discord_bot', 'github', 'stripe', 'pterodactyl', 'spaceship', 'search', 'other'}
 UI_PATH = Path(__file__).with_name('web') / 'connections.html'
 
 
