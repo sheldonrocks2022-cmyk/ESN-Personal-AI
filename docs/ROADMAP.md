@@ -17,3 +17,10 @@
 8. **Panel design**: inspect installed Pterodactyl frontend and screenshots, stage/test premium responsive theme, deploy only with approval.
 
 Milestones are goals, not completed features. Each requires testing and evidence.
+
+## Cinematic media and authorized login automation
+- **Media studio (planned):** ingest authorized reference footage; cinematic editing pipeline with beat/scene analysis, speed ramps, compositing, motion graphics, isolated rendering workers, 4K/vertical exports, previews, revisions, and real downloadable video artifacts.
+- **Passkeys (planned):** support site-approved WebAuthn passkey registration with owner approval and secure authenticator custody, not LLM-held keys. No passkeys are currently provisioned.
+- **Human checks:** pause for legitimate CAPTCHA/MFA/identity verification and hand the browser session back to the owner. Do not bypass anti-bot or identity protections.
+- **Safety:** keep media rendering separate from Pterodactyl production nodes; no automatic posting or paid API use without permission.
+- Detailed specification and acceptance tests: [Cinematic Media Studio and Authorized Authentication](MEDIA_AND_AUTH.md).
