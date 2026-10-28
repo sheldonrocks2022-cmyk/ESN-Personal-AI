@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090d1b">
+<title>ESN Jarvis · Command Center</title>
+<style>
+:root{color-scheme:dark;--ink:#edf3ff;--muted:#9cacc9;--line:#2b3853;--panel:#121c31;--panel2:#0d1628;--violet:#9d88ff;--aqua:#57e0c9;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at 77% 0%,#29376a88,transparent 43%),radial-gradient(ellipse at 0% 35%,#2446573d,transparent 52%),#070c16;min-height:100vh}
+a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+nav{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:30px;padding:16px max(20px,calc((100vw - 1220px)/2));background:#0c1325ef;border-bottom:1px solid #354364;backdrop-filter:blur(18px)}
+.logo{display:flex;align-items:center;gap:10px;white-space:nowrap;font-size:15px;font-weight:850;letter-spacing:.07em}.logo-mark{display:grid;place-items:center;width:35px;height:35px;border:1px solid #a28cffb3;border-radius:12px;color:white;background:linear-gradient(140deg,#9c82ff,#445eaf);box-shadow:0 7px 23px #7d65d94a}
+.logo b{color:#b49cff}.navlinks{display:flex;gap:5px;flex:1;overflow:auto;scrollbar-width:none}.navlinks a{padding:9px 13px;border-radius:10px;color:#b8c6e0;font-size:13px;font-weight:650;white-space:nowrap}.navlinks a:hover,.navlinks a[aria-current]{background:#263250;color:white}.nav-signal{font-size:12px;white-space:nowrap;color:#a7e9da}.nav-signal::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#50dfb1;margin-right:8px}
+main{max-width:1220px;margin:auto;padding:46px 25px 90px}
+.overline{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--aqua);font-weight:800}
+.hero{display:grid;grid-template-columns:1.4fr .7fr;gap:25px;align-items:end;margin-bottom:28px}
+h1{font-size:clamp(34px,6vw,66px);line-height:1.04;letter-spacing:-.05em;margin:12px 0 18px;max-width:730px}
+.gradient{background:linear-gradient(100deg,#fff 25%,#b6a7ff 68%,#65e6cf);-webkit-background-clip:text;background-clip:text;color:transparent}
+p{color:var(--muted)}.hero p{font-size:15px;max-width:570px;margin:0}
+.hero-info{background:linear-gradient(160deg,#202f55,#15233f);border:1px solid #3c4d79;padding:21px 22px;border-radius:20px;box-shadow:0 18px 60px #0003}.hero-info strong{font-size:17px}.tiny{font-size:12px;color:#99abc9}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 30px}
+.btn{border:1px solid #536087;border-radius:12px;padding:11px 18px;font-size:13px;font-weight:750;background:#26324b;color:#e5edff}.btn-primary{background:linear-gradient(115deg,#9b80f4,#697ef0);border-color:transparent;color:white}
+.btn:hover{filter:brightness(1.13)}.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-bottom:26px}
+.card{border:1px solid var(--line);background:linear-gradient(145deg,#151e33e8,#0f192b);border-radius:20px;padding:21px;box-shadow:0 12px 40px #0002;min-width:0}
+.stat-label{display:flex;align-items:center;gap:8px;color:#a5b7d8;font-size:12px;font-weight:750}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5bddc2}
+.stat-value{font-size:clamp(22px,3vw,34px);font-weight:850;letter-spacing:-.035em;margin:12px 0 1px;overflow-wrap:anywhere}
+.stat-foot{font-size:12px;color:#91a4c6}.split{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+h2{font-size:19px;letter-spacing:-.015em;margin:0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:19px}
+.pill{background:#223453;color:#b6cdf4;font-size:11px;padding:5px 10px;border-radius:99px;font-weight:750}
+.item{padding:14px 0;border-bottom:1px solid #2b3853}.item:last-child{border-bottom:0}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.item strong{display:block;font-size:14px;overflow-wrap:anywhere}.item small{color:#91a4c6;font-size:12px}.state{font-size:11px;color:#b6f4df;background:#194039;padding:5px 8px;border-radius:99px;white-space:nowrap}.muted{color:#9caec9}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.quick a{display:block;border:1px solid #354562;border-radius:13px;padding:14px;background:#1a2640;font-weight:720;font-size:13px}.quick a span{display:block;color:#a6b6d0;font-weight:450;font-size:12px;margin-top:4px}.quick a:hover{border-color:#8d88e2}
+.progress{width:100%;height:8px;border-radius:99px;overflow:hidden;background:#303d58;margin:15px 0}.progress div{height:100%;background:linear-gradient(90deg,#5fe4ca,#9d86f5);width:0}
+#notice{color:#a9bfe2;font-size:12px;min-height:19px;padding-top:10px}
+@media(max-width:800px){.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.split,.hero{grid-template-columns:1fr}nav{padding:12px 16px;gap:15px}.nav-signal{display:none}main{padding:26px 16px 60px}.hero-info{display:none}.hero{margin-bottom:0}h1{font-size:clamp(34px,9vw,51px)}}
+@media(max-width:430px){nav{flex-wrap:wrap}.navlinks{order:2;flex-basis:100%;gap:3px}.navlinks a{padding:8px 10px}.stat-grid{gap:9px}.card{padding:16px}.quick{grid-template-columns:1fr}}
+</style></head>
+<body>
+<nav aria-label="Jarvis navigation"><a href="/dashboard" class="logo"><span class="logo-mark">J</span>ESN <b>JARVIS</b></a><div class="navlinks"><a href="/dashboard" aria-current="page">Overview</a><a href="/assistant">Assistant</a><a href="/tasks">Task Center</a><a href="/studio">Creative Studio</a><a href="/connections">Connections</a></div><span class="nav-signal">Owner workspace</span></nav>
+<main>
+<div class="hero"><div><div class="overline">Your private operations workspace</div><h1>Build bigger.<br><span class="gradient">Stay in control.</span></h1><p>One home for your ESN AI, infrastructure checks, creative work, and connected tools. Every live metric below comes from your own Jarvis server.</p></div><aside class="hero-info"><div class="overline">Jarvis intelligence</div><p><strong>Local-first. Owner-controlled.</strong></p><p class="tiny">Qwen3 through your local Ollama service. No OpenAI API connection is required for this dashboard.</p></aside></div>
+<div class="actions"><a class="btn btn-primary" href="/assistant">Talk to Jarvis</a><a class="btn" href="/tasks">View operations</a><a class="btn" href="/studio">Open Creative Studio</a><button class="btn" id="reload">Refresh status</button></div>
+<section class="stat-grid" aria-label="Live server metrics">
+<div class="card"><div class="stat-label"><span class="dot"></span> JARVIS MEMORY</div><div class="stat-value" id="ram">—</div><div class="stat-foot" id="ram-detail">Waiting for resource monitor</div><div class="progress"><div id="ram-bar"></div></div></div>
+<div class="card"><div class="stat-label"><span class="dot"></span> DISK SPACE</div><div class="stat-value" id="disk">—</div><div class="stat-foot" id="disk-detail">Current Jarvis host only</div><div class="progress"><div id="disk-bar"></div></div></div>
+<div class="card"><div class="stat-label"><span class="dot"></span> TASKS</div><div class="stat-value" id="completed">—</div><div class="stat-foot">Recently completed checks</div></div>
+<div class="card"><div class="stat-label"><span class="dot"></span> ACTIVE PLANS</div><div class="stat-value" id="plans-count">—</div><div class="stat-foot">Approved or awaiting approval</div></div>
+</section>
+<div class="split">
+<section class="card"><div class="section-head"><h2>Autonomous operations</h2><a class="pill" href="/tasks">Open Task Center</a></div><div id="plans"><p>No saved plans to show.</p></div></section>
+<section class="card"><div class="section-head"><h2>Your workspace</h2><span class="pill">Private</span></div>
+<div class="quick"><a href="/assistant">AI Assistant<span>Local chat and owner-approved notes</span></a><a href="/tasks">Operations<span>Audits, schedules and disk reports</span></a><a href="/studio">Creative Studio<span>Real output jobs and edits</span></a><a href="/connections">Connections<span>Manage encrypted credentials</span></a></div>
+<div style="margin-top:22px"><div class="overline">Safety boundaries</div><p class="tiny">Jarvis only checks nodes and accounts through connections you authorize. Production changes require separate approval; disk audits do not delete files. Your 8 GiB limit remains managed by systemd.</p></div>
+</section></div>
+<p id="notice" role="status" aria-live="polite"></p>
+</main>
+<script>
+const $=id=>document.getElementById(id),GiB=1073741824;
+async function getJSON(path){const response=await fetch(path,{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Sign in or try refreshing');return response.json()}
+function plain(t,s){const x=document.createElement(t);x.textContent=s;return x}
+async function load(){
+ $('notice').textContent='Checking real Jarvis data…';
+ const data=await Promise.allSettled([
+  getJSON('/api/operations/resources'),
+  getJSON('/api/operations/storage'),
+  getJSON('/api/operations'),
+  getJSON('/api/autonomous/plans')
+ ]);
+ const one=i=>data[i].status==='fulfilled'?data[i].value:null;
+ const mem=one(0),disk=one(1),jobs=one(2),plans=one(3);
+ if(mem&&mem.used_bytes!==null){$('ram').textContent=(mem.used_bytes/GiB).toFixed(2)+' GiB';$('ram-detail').textContent=mem.shared_cap_active?'8 GiB shared limit active':'Limit not verified';$('ram-bar').style.width=Math.min(100,mem.usage_percent||0)+'%'}else{$('ram').textContent='Unavailable'}
+ if(disk){$('disk').textContent=(disk.free_bytes/GiB).toFixed(1)+' GiB';$('disk-detail').textContent='Free · '+disk.disk_pressure+' disk pressure';$('disk-bar').style.width=Math.min(100,disk.used_percent)+'%'}else{$('disk').textContent='Unavailable'}
+ $('completed').textContent=jobs?jobs.jobs.filter(x=>x.status==='completed').length:'—';
+ const active=plans?plans.plans.filter(x=>x.status==='running'||x.status==='awaiting_approval'):[];
+ $('plans-count').textContent=plans?active.length:'—';
+ const target=$('plans');target.replaceChildren();
+ if(!plans){target.append(plain('p','Could not read autonomous plan status.'))}
+ else if(!plans.plans.length){target.append(plain('p','No autonomous plans yet. Create one from Task Center.'))}
+ else for(const item of plans.plans.slice(0,5)){const wrap=plain('div','');wrap.className='item';const row=plain('div','');row.className='row';const left=plain('div','');left.append(plain('strong',item.goal),plain('small',item.completed_steps+'/'+item.total_steps+' verified steps'));const state=plain('span',item.status.replaceAll('_',' '));state.className='state';row.append(left,state);wrap.append(row);target.append(wrap)}
+ $('notice').textContent='Status updated. Metrics are live snapshots, not continuous monitoring.';
+}
+$('reload').onclick=load;
+load().catch(()=>{$('notice').textContent='Unable to load dashboard status. Open Connections and sign in.'});
+</script>
+</body></html>
