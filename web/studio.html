@@ -1,8 +1,23 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ESN Jarvis · Creative Studio</title><style>
 :root{color-scheme:dark;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;background:#070c16;color:#edf2ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 100% 0%,#17274b 0,transparent 55%),#070c16}header{padding:20px 24px;border-bottom:1px solid #273147;display:flex;gap:16px;justify-content:space-between;align-items:center}a{color:#adbcff;text-decoration:none}main{max-width:1100px;margin:0 auto;padding:28px 18px 60px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#9bb1ff}h1{font-size:clamp(27px,4vw,43px);line-height:1.1;margin:7px 0}p{color:#a8b7d2}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:25px 0}.tab{padding:10px 16px;border:1px solid #344263;border-radius:12px;color:#dae4ff;background:#141d30;cursor:pointer}.tab[aria-selected="true"]{background:#7e67ec;border-color:#7e67ec;color:#fff}.panel{border:1px solid #2a3653;border-radius:18px;padding:22px;background:#0d1526;margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.hint{font-size:13px;color:#a4b3d1}label{display:block;font-weight:600;font-size:13px;margin:12px 0 6px}input,select{width:100%;background:#111c31;color:#e5edff;border:1px solid #354665;border-radius:10px;padding:12px;font:inherit;min-width:0}button{cursor:pointer;border:0;border-radius:10px;background:#8069fa;color:white;padding:12px 16px;font:600 14px system-ui}button.secondary{background:#243555;color:#e2e8ff}.work-item{padding:12px 0;border-bottom:1px solid #2a3653}.work-item:last-child{border:0}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}.tag{font-size:12px;border-radius:999px;padding:3px 9px;background:#26395b;color:#a9d5ff}#message{min-height:28px;color:#cbd6ff;margin:14px 0}.hidden{display:none}code{color:#bee4ff}details{margin:15px 0}.asset{font-size:12px;color:#a8b6d0}
-</style></head><body>
+</style><style>:root{--jarvis-bg:#080d19;--jarvis-accent:#9e88fa;--jarvis-ink:#edf2ff;--jarvis-outline:#354566}
+body{background:radial-gradient(ellipse at 85% 0%,#26396799,transparent 46%),radial-gradient(ellipse at 0% 35%,#183c4f66,transparent 50%),var(--jarvis-bg)!important;color:var(--jarvis-ink)!important}
+header{background:#0b1427e8!important;border-bottom-color:#324561!important;backdrop-filter:blur(14px)}
+header>a{color:#afc3f4!important}
+.jarvis-subnav{display:flex;align-items:center;gap:6px;padding:10px max(16px,calc((100vw - 1100px)/2));background:#111a2ce0;border-bottom:1px solid #2d3b58;overflow-x:auto;scrollbar-width:none}
+.jarvis-subnav a{flex:none;padding:10px 15px;border:1px solid transparent;border-radius:12px;color:#a9bcdb;text-decoration:none;font-size:13px;font-weight:720;white-space:nowrap}
+.jarvis-subnav a:hover{color:white;background:#243555}
+.jarvis-subnav a[aria-current="page"]{color:white;background:#2b3358;border-color:#6866b7}
+h1{letter-spacing:-.038em;line-height:1.12}
+h2{letter-spacing:-.016em}
+.panel,.card{border-color:var(--jarvis-outline)!important;background:linear-gradient(160deg,#17233bfa,#10192df7)!important;box-shadow:0 12px 44px #00000024}
+button:not(:disabled){transition:transform .17s,filter .17s}
+button:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.09)}
+input:focus,select:focus,textarea:focus{outline:2px solid #a08efa66;outline-offset:2px}
+@media(max-width:650px){header{padding:12px 15px!important}.jarvis-subnav{padding:8px 10px}.jarvis-subnav a{padding:9px 11px}.panel,.card{border-radius:15px!important}}</style></head><body>
 <header><b>ESN <span style="color:#a393ff">JARVIS</span> <span style="font-weight:400;color:#a9b9d4">/ Creative Studio</span></b><a href="/connections">Connections & security</a> · <a href="/tasks">Task Center</a></header>
+<nav class="jarvis-subnav" aria-label="Main Jarvis navigation"><a href="/dashboard" data-view="Dashboard">Overview</a><a href="/assistant" data-view="Assistant">Assistant</a><a href="/tasks" data-view="Tasks">Task Center</a><a href="/studio" data-view="Studio" aria-current="page">Creative Studio</a><a href="/connections" data-view="Connections">Connections</a></nav>
 <main><div class="eyebrow">Creator tools · Real output files</div><h1>Make something remarkable.</h1><p>Design editable logos, assemble actual MP4 videos and prepare After Effects / CapCut handoffs. Rendering is handled on your own isolated media worker—not on customer hosting nodes.</p>
 <div class="tabs" role="tablist"><button class="tab" id="showLogo" aria-selected="true">Logo maker</button><button class="tab" id="showVideo" aria-selected="false">Video editor</button><button class="tab" id="showJobs" aria-selected="false">My outputs</button></div>
 <div id="message" aria-live="polite"></div>
