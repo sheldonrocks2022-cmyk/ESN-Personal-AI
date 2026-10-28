@@ -1,9 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ESN Jarvis — Task Center</title><style>
-:root{color-scheme:dark;font:15px system-ui;background:#080d18;color:#edf2ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 100% 0,#18305c,transparent 60%),#080d18;min-height:100vh}header{display:flex;justify-content:space-between;flex-wrap:wrap;padding:20px;gap:12px;border-bottom:1px solid #29364d}a{color:#adbcff}main{max-width:1100px;margin:30px auto;padding:0 18px}h1{font-size:clamp(28px,5vw,42px)}p,small{color:#aebcdb}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:16px}.panel{padding:20px;border:1px solid #32435f;border-radius:17px;background:#111b2e;margin-bottom:18px}button,input,select{font:inherit;border-radius:9px;padding:12px;color:#eff3ff}button{border:0;background:#7567e5;cursor:pointer}button.secondary{background:#33445f}select,input{background:#0c1729;border:1px solid #354762;width:100%}label{display:block;font-size:13px;margin:12px 0 7px;color:#c7d7f4}.item{padding:13px 0;border-bottom:1px solid #32415f}.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.pill{font-size:12px;color:#bcd3fe;background:#24395f;border-radius:40px;padding:5px 9px}#msg{min-height:25px}pre{white-space:pre-wrap;word-break:break-word;color:#d7e4fb;font-size:12px}details{margin-top:10px}</style></head><body>
+:root{color-scheme:dark;font:15px system-ui;background:#080d18;color:#edf2ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 100% 0,#18305c,transparent 60%),#080d18;min-height:100vh}header{display:flex;justify-content:space-between;flex-wrap:wrap;padding:20px;gap:12px;border-bottom:1px solid #29364d}a{color:#adbcff}main{max-width:1100px;margin:30px auto;padding:0 18px}h1{font-size:clamp(28px,5vw,42px)}p,small{color:#aebcdb}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:16px}.panel{padding:20px;border:1px solid #32435f;border-radius:17px;background:#111b2e;margin-bottom:18px}button,input,select{font:inherit;border-radius:9px;padding:12px;color:#eff3ff}button{border:0;background:#7567e5;cursor:pointer}button.secondary{background:#33445f}select,input{background:#0c1729;border:1px solid #354762;width:100%}label{display:block;font-size:13px;margin:12px 0 7px;color:#c7d7f4}.item{padding:13px 0;border-bottom:1px solid #32415f}.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.pill{font-size:12px;color:#bcd3fe;background:#24395f;border-radius:40px;padding:5px 9px}#msg{min-height:25px}.auto-input{width:100%}.auto-details{margin-top:8px}pre{white-space:pre-wrap;word-break:break-word;color:#d7e4fb;font-size:12px}details{margin-top:10px}</style></head><body>
 <header><b>ESN <span style="color:#a18cff">JARVIS</span> / Task Center</b><nav><a href="/connections">Connections</a> · <a href="/studio">Creative Studio</a></nav></header><main><h1>Real operations, verified results.</h1><p>Read-only ESN infrastructure checks and safe scheduled automation. All tasks have persistent records. No payments, DNS mutations, or customer modifications.</p><div id="msg" role="status"></div><div class="grid">
 <section class="panel"><h2>Run a check</h2><form id="run"><label for="kind">Task type</label><select id="kind"></select><label for="target">Browser inspection target</label><select id="target"><option value="website">ESN Website</option><option value="panel">ESN Panel (public login only)</option></select><p><button type="submit">Run real check</button></p></form></section>
 <section class="panel"><h2>Recurring checks</h2><form id="schedule"><label for="skind">Task</label><select id="skind"></select><label for="interval">Frequency</label><select id="interval"><option value="15">Every 15 minutes</option><option value="30">Every 30 minutes</option><option value="60" selected>Hourly</option><option value="180">Every 3 hours</option><option value="360">Every 6 hours</option><option value="720">Twice daily</option><option value="1440">Daily</option></select><p><button type="submit">Create schedule</button></p></form></section></div>
 <section class="panel"><div class="row"><h2>Schedules</h2><button class="secondary" id="refresh">Refresh</button></div><div id="schedules"></div></section>
+<section class="panel"><div class="row"><h2>Autonomous plans</h2><button type="button" class="secondary" id="refresh-auto">Refresh plans</button></div><p>Jarvis can run up to five approved read-only ESN checks in order. Preview a plan, approve it explicitly, then view verified step results. No shell, provisioning, payments, DNS edits or customer modifications.</p><form id="auto-form"><label for="auto-goal">What should Jarvis audit?</label><input id="auto-goal" class="auto-input" maxlength="240" required placeholder="Audit the ESN panel, website and GitHub"><p><button type="submit">Create plan for review</button></p></form><div id="auto-plans"></div></section>
 <section class="panel"><div class="row"><h2>Jarvis RAM budget</h2><span class="pill" id="ram-state">Checking...</span></div><p id="ram-text">Reading the shared systemd memory limit.</p><progress id="ram-meter" max="100" value="0" style="width:100%;height:14px;accent-color:#8d9cf6"></progress><p><small>8 GiB is a shared ceiling for Jarvis services only when all three are assigned to the resource slice; other ESN services are not included. A limit is not a guarantee against application crashes.</small></p></section>
 <section class="panel"><h2>Recent jobs</h2><div id="jobs"></div></section><p><small>Browser scan requires optional Playwright/Chromium installed on the isolated host. For authenticated page inspection, future development will use a secure owner handoff, not human-verification bypassing.</small></p></main>
 <script>
@@ -23,9 +24,48 @@ function addKinds(kinds){
   }
 }
 async function loadResources(){try{const r=await api('/api/operations/resources');const state=document.getElementById('ram-state'),desc=document.getElementById('ram-text'),meter=document.getElementById('ram-meter');if(r.shared_cap_active && r.used_bytes!==null){const used=(r.used_bytes/1073741824).toFixed(2);state.textContent='Shared cap active';desc.textContent=used+' GiB of 8 GiB used in the Jarvis slice';meter.value=Math.min(100,r.usage_percent||0)}else{state.textContent='Not active / unverified';desc.textContent='The 8 GiB shared systemd limit is not active yet. Apply the resource-budget deployment and verify service membership.';meter.value=0}}catch(e){document.getElementById('ram-state').textContent='Unavailable';document.getElementById('ram-text').textContent='Unable to read resource usage.'}}
-async function init(){try{const s=await api('/api/connections');csrf=s.csrf;await refresh();await loadResources()}catch(e){output('Sign in at Connections first. '+e.message)}}
+async function refreshAuto(){
+ try{
+  const data=await api('/api/autonomous/plans'), root=document.getElementById('auto-plans');
+  root.replaceChildren();
+  if(!data.plans.length){root.append(node('p','No autonomous plans yet.'));return}
+  for(const plan of data.plans){
+   const item=node('div');item.className='item';
+   const top=node('div');top.className='row';
+   top.append(node('b',plan.goal),node('span',plan.status+' · '+plan.completed_steps+'/'+plan.total_steps));
+   item.append(top,node('small','Plan ID: '+plan.id));
+   const details=node('details');details.className='auto-details';
+   details.append(node('summary','View steps and verified results'));
+   for(const step of plan.steps){
+    const line=node('p',(step.position+1)+'. '+step.kind.replaceAll('_',' ')+' — '+step.status+
+     (step.attempts?' (attempts: '+step.attempts+')':''));
+    details.append(line);
+    if(step.result){const report=node('pre',JSON.stringify(step.result,null,2));details.append(report)}
+    if(step.error){details.append(node('small',step.error))}
+   }
+   item.append(details);
+   const buttons=node('div');buttons.className='row';
+   if(plan.status==='awaiting_approval'){
+    const approve=node('button','Approve & start');approve.type='button';
+    approve.onclick=()=>actAuto('/api/autonomous/approve',{id:plan.id});
+    buttons.append(approve);
+   }
+   if(plan.status==='awaiting_approval'||plan.status==='running'){
+    const cancel=node('button','Cancel remaining');cancel.type='button';cancel.className='secondary';
+    cancel.onclick=()=>actAuto('/api/autonomous/cancel',{id:plan.id});
+    buttons.append(cancel);
+   }
+   item.append(buttons);root.append(item);
+  }
+ }catch(e){output('Plan status unavailable: '+e.message)}
+}
+async function actAuto(path,payload){
+ try{const response=await api(path,payload);output(JSON.stringify(response));await refreshAuto()}
+ catch(e){output(e.message)}
+}
+async function init(){try{const s=await api('/api/connections');csrf=s.csrf;await refresh();await loadResources();await refreshAuto()}catch(e){output('Sign in at Connections first. '+e.message)}}
 async function refresh(){try{let d=await api('/api/operations');addKinds(d.kinds);let tasks=document.getElementById('jobs');tasks.replaceChildren();for(const task of d.jobs){let line=node('div');line.className='item';let header=node('div');header.className='row';header.append(node('b',task.kind+' · '+task.id.slice(0,8)),node('span',task.status));line.append(header,node('small',task.created_at));if(task.error)line.append(node('p',task.error));if(task.result_json){let detail=node('details'),summary=node('summary','Verified result'),pre=node('pre',JSON.stringify(JSON.parse(task.result_json),null,2));detail.append(summary,pre);line.append(detail)}if(task.status==='queued'){let b=node('button','Cancel');b.className='secondary';b.onclick=()=>act('/api/operations/cancel',{id:task.id});line.append(b)}tasks.append(line)}if(!d.jobs.length)tasks.append(node('p','No checks yet.'));
 let schedules=document.getElementById('schedules');schedules.replaceChildren();for(const sch of d.schedules){let item=node('div');item.className='item';item.append(node('b',sch.kind+' · Every '+sch.interval_minutes+' min'),node('p',sch.enabled?'Next check: '+new Date(sch.next_due*1000).toLocaleString():'Paused'));if(sch.enabled){let b=node('button','Pause');b.className='secondary';b.onclick=()=>act('/api/operations/pause',{id:sch.id});item.append(b)}schedules.append(item)}if(!d.schedules.length)schedules.append(node('p','No recurring checks yet.'));}catch(e){output(e.message)}}
 async function act(path,data){try{let r=await api(path,data);output(JSON.stringify(r));await refresh()}catch(e){output(e.message)}}
-document.getElementById('run').onsubmit=e=>{e.preventDefault();let k=document.getElementById('kind').value;act('/api/operations/jobs',{kind:k,options:opts(k)})};document.getElementById('schedule').onsubmit=e=>{e.preventDefault();let k=document.getElementById('skind').value;act('/api/operations/schedules',{kind:k,options:opts(k),interval_minutes:Number(document.getElementById('interval').value)})};document.getElementById('refresh').onclick=()=>{refresh();loadResources()};init();
+document.getElementById('run').onsubmit=e=>{e.preventDefault();let k=document.getElementById('kind').value;act('/api/operations/jobs',{kind:k,options:opts(k)})};document.getElementById('schedule').onsubmit=e=>{e.preventDefault();let k=document.getElementById('skind').value;act('/api/operations/schedules',{kind:k,options:opts(k),interval_minutes:Number(document.getElementById('interval').value)})};document.getElementById('refresh').onclick=()=>{refresh();loadResources();refreshAuto()};document.getElementById('refresh-auto').onclick=refreshAuto;document.getElementById('auto-form').onsubmit=e=>{e.preventDefault();const goal=document.getElementById('auto-goal').value;actAuto('/api/autonomous/create',{goal})};init();
 </script></body></html>
