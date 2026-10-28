@@ -282,6 +282,10 @@ def handle(handler):
         if path == '/api/operations':
             handler.send_json(200, {'jobs': jobs(), 'schedules': schedules(), 'kinds': sorted(TASK_KINDS), 'intervals': sorted(INTERVALS)})
             return True
+        if path == '/api/operations/resources':
+            import resources
+            handler.send_json(200, resources.snapshot())
+            return True
     if handler.command == 'POST':
         if not _csrf(handler):
             handler.send_json(403, {'error': 'Request rejected'}); return True
