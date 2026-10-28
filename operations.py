@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 import connections
 
-TASK_KINDS = frozenset({"panel_health", "nodes_snapshot", "servers_snapshot", "esn_website_health", "github_repo_health", "browser_scan"})
+TASK_KINDS = frozenset({"panel_health", "nodes_snapshot", "servers_snapshot", "esn_website_health", "github_repo_health", "browser_scan", "storage_audit"})
 # Browser inspection is deliberately limited to public ESN websites, without credentials.
 SCAN_TARGETS = {"website": "https://esnoffical.com", "panel": "https://panel.esnoffical.com"}
 INTERVALS = {15, 30, 60, 180, 360, 720, 1440}
@@ -168,6 +168,9 @@ def run_task(kind, options):
         return {'repo': 'ESN-Personal-AI', 'http_status': status, 'default_branch': obj.get('default_branch'), 'archived': bool(obj.get('archived'))}
     if kind == 'browser_scan':
         return browser_scan(options['target'])
+    if kind == 'storage_audit':
+        import maintenance
+        return maintenance.report()
     raise ValueError('Unsupported task')
 
 
@@ -285,6 +288,10 @@ def handle(handler):
         if path == '/api/operations/resources':
             import resources
             handler.send_json(200, resources.snapshot())
+            return True
+        if path == '/api/operations/storage':
+            import maintenance
+            handler.send_json(200, maintenance.report())
             return True
     if handler.command == 'POST':
         if not _csrf(handler):

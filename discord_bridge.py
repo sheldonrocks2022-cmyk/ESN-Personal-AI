@@ -10,6 +10,7 @@ from connections import read_secret_local
 import jarvis
 import memory_store
 import autonomous
+import maintenance
 
 
 def run():
@@ -161,6 +162,28 @@ def run():
             )
         except (ValueError, KeyError):
             await interaction.followup.send('Plan not found or invalid ID.', ephemeral=True)
+
+    @tree.command(name='jarvis_disk', description='Inspect storage pressure on the current Jarvis VPS (read-only)')
+    async def disk(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            data = await asyncio.to_thread(maintenance.report)
+            gb = 1024 ** 3
+            cache = data['jarvis_owned_cache']
+            await interaction.followup.send(
+                f'**Jarvis VPS disk (not all nodes)**\n'
+                f'Used: {data["used_bytes"]/gb:.1f} / {data["total_bytes"]/gb:.1f} GiB\n'
+                f'Free: {data["free_bytes"]/gb:.1f} GiB ({data["free_percent"]:.1f}%)\n'
+                f'Pressure: {data["disk_pressure"]}\n'
+                f'Jarvis-owned cache older than 7 days: '
+                f'{cache["older_than_7_days_bytes"]/1048576:.1f} MiB '
+                f'in {cache["older_than_7_days_file_count"]} files\n'
+                'Read-only: No files removed. Other ESN nodes require separate agent setup.',
+                ephemeral=True,
+            )
+        except Exception:
+            await interaction.followup.send('Disk audit unavailable. See private service logs.', ephemeral=True)
 
     @client.event
     async def on_ready():

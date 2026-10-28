@@ -77,3 +77,7 @@ To place Ollama, Jarvis web and Jarvis Discord under one real cgroup RAM ceiling
 ## Step 53: owner-approved autonomous tasks
 
 Jarvis supports a durable, **read-only** multi-step workflow engine. Create an audit in the owner-only Discord bot with `/jarvis_auto goal:Audit ESN panel, website and GitHub`, review its steps, approve the plan using `/jarvis_auto_approve`, then query `/jarvis_auto_status` or the authenticated `/tasks` dashboard for actual completed results. You may cancel remaining work with `/jarvis_auto_cancel`. A saved plan never runs without approval. The fixed allowlist blocks shell commands, payments, DNS changes, destructive actions, deployments, or arbitrary websites. See [Step 53 guide](docs/STEP53_AUTONOMOUS.md). This is a limited workflow engine, not a general-purpose self-directed software operator.
+
+## Node storage diagnostics (safe first phase)
+
+Use owner-only Discord `/jarvis_disk`, the `/tasks` Storage Audit panel or the `storage_audit` read-only task to see disk utilization and *estimates* for aged Jarvis-owned temporary files on the VPS where Jarvis runs. No deletion, root access, arbitrary paths, remote-node scanning or customer storage reads are added. Follow the [Node Maintenance Roadmap](docs/NODE_MAINTENANCE.md) for separate authenticated agent rollout and approval-gated cleanup. The shared 8 GiB Jarvis limit remains unchanged.
