@@ -24,12 +24,12 @@ CPUAccounting=yes
 CPUQuota=200%
 """
 OVERRIDE = """[Service]
-Slice=esn-jarvis.slice
+Slice=esnjarvis.slice
 """
 
 
 def manifest(root=ROOT):
-    files = {root / "esn-jarvis.slice": SLICE}
+    files = {root / "esnjarvis.slice": SLICE}
     for unit in SERVICES:
         files[root / (unit + ".d") / "90-esn-budget.conf"] = OVERRIDE
     return files
@@ -80,7 +80,7 @@ def main():
         print("Drop-ins installed, but not yet active for running processes.")
         print("After checking maintenance impact, restart ONLY: systemctl restart ollama esn-jarvis esn-jarvis-discord")
         print("Then verify: systemctl show ollama esn-jarvis esn-jarvis-discord -p Slice")
-        print("And inspect: systemctl show esn-jarvis.slice -p MemoryMax -p MemoryHigh")
+        print("And inspect: systemctl show esnjarvis.slice -p MemoryMax -p MemoryHigh")
     else:
         print("DRY RUN ONLY; nothing changed. To install, rerun with --apply.")
     return 0
