@@ -45,6 +45,7 @@ h2{font-size:19px;letter-spacing:-.015em;margin:0}.section-head{display:flex;ali
 <div class="card"><div class="stat-label"><span class="dot"></span> DISK SPACE</div><div class="stat-value" id="disk">—</div><div class="stat-foot" id="disk-detail">Current Jarvis host only</div><div class="progress"><div id="disk-bar"></div></div></div>
 <div class="card"><div class="stat-label"><span class="dot"></span> TASKS</div><div class="stat-value" id="completed">—</div><div class="stat-foot">Recently completed checks</div></div>
 <div class="card"><div class="stat-label"><span class="dot"></span> ACTIVE PLANS</div><div class="stat-value" id="plans-count">—</div><div class="stat-foot">Approved or awaiting approval</div></div>
+<div class="card"><div class="stat-label"><span class="dot"></span> TASK CAPACITY</div><div class="stat-value" id="queue">—</div><div class="stat-foot" id="queue-detail">50 queued slots, not 50 AI processes</div></div>
 </section>
 <div class="split">
 <section class="card"><div class="section-head"><h2>Autonomous operations</h2><a class="pill" href="/tasks">Open Task Center</a></div><div id="plans"><p>No saved plans to show.</p></div></section>
@@ -64,10 +65,13 @@ async function load(){
   getJSON('/api/operations/resources'),
   getJSON('/api/operations/storage'),
   getJSON('/api/operations'),
-  getJSON('/api/autonomous/plans')
+  getJSON('/api/autonomous/plans'),
+  getJSON('/api/operations/capacity')
  ]);
  const one=i=>data[i].status==='fulfilled'?data[i].value:null;
- const mem=one(0),disk=one(1),jobs=one(2),plans=one(3);
+ const mem=one(0),disk=one(1),jobs=one(2),plans=one(3),capacity=one(4);
+ $('queue').textContent=capacity?capacity.occupied_slots+'/'+capacity.queued_capacity:'—';
+ $('queue-detail').textContent=capacity?'Max '+capacity.max_read_only_check_threads+' active check threads; memory guard '+(capacity.memory_pressure_pauses_new_checks?'paused':'ready'):'Queue data unavailable';
  if(mem&&mem.used_bytes!==null){$('ram').textContent=(mem.used_bytes/GiB).toFixed(2)+' GiB';$('ram-detail').textContent=mem.shared_cap_active?'8 GiB shared limit active':'Limit not verified';$('ram-bar').style.width=Math.min(100,mem.usage_percent||0)+'%'}else{$('ram').textContent='Unavailable'}
  if(disk){$('disk').textContent=(disk.free_bytes/GiB).toFixed(1)+' GiB';$('disk-detail').textContent='Free · '+disk.disk_pressure+' disk pressure';$('disk-bar').style.width=Math.min(100,disk.used_percent)+'%'}else{$('disk').textContent='Unavailable'}
  $('completed').textContent=jobs?jobs.jobs.filter(x=>x.status==='completed').length:'—';
