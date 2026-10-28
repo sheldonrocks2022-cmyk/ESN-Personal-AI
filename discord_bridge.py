@@ -14,6 +14,7 @@ import autonomous
 import maintenance
 import dm_access
 import dm_commands
+import managed_bots
 import research
 import worker_budget
 import operations
@@ -330,6 +331,61 @@ def run():
             await interaction.followup.send('**ESN servers (first API page)**\n' + ('\n'.join(rows) or 'No servers.'), ephemeral=True)
         except Exception:
             await interaction.followup.send('Panel API not connected or servers unavailable.', ephemeral=True)
+
+    @tree.command(name='jarvis_bots', description='Owner: list bot identities connected through the encrypted vault')
+    async def bots(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        rows = await asyncio.to_thread(managed_bots.list_bots)
+        text = '\n'.join(x['label'] + ' · ' + x['id'] for x in rows) or 'No managed bot connections yet.'
+        await interaction.followup.send(text[:1800], ephemeral=True)
+
+    @tree.command(name='jarvis_bot_check', description='Owner: validate one of your stored Discord bot credentials')
+    @app_commands.describe(connection_id='Saved bot connection ID from /jarvis_bots')
+    async def bot_check(interaction: discord.Interaction, connection_id: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(managed_bots.identity, connection_id)
+            await interaction.followup.send(
+                f'Authenticated as {result["bot_name"]} ({result["bot_id"]}). '
+                'The stored token remains in your encrypted vault.', ephemeral=True
+            )
+        except (ValueError, RuntimeError):
+            await interaction.followup.send(
+                'Bot not connected or authorization failed. Check the private Connections vault.',
+                ephemeral=True
+            )
+
+    @tree.command(name='jarvis_bot_send', description='Owner: send a single explicitly approved guild-channel message as your bot')
+    @app_commands.describe(connection_id='Saved bot connection ID',
+                           channel_id='Destination text/announcement channel ID',
+                           content='Exact message text',
+                           confirm='You must explicitly confirm this send')
+    async def bot_send(interaction: discord.Interaction, connection_id: str,
+                       channel_id: str, content: str, confirm: bool = False):
+        if not await owner_only(interaction): return
+        if not confirm:
+            await interaction.response.send_message(
+                'No message sent. Set confirm to true to send this exact text as your bot.',
+                ephemeral=True
+            )
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(
+                managed_bots.send_one, connection_id, channel_id, content,
+                confirm=True,
+            )
+            await interaction.followup.send(
+                f'Discord confirmed message {result["message_id"]} in guild channel {result["channel_id"]}.',
+                ephemeral=True
+            )
+        except (ValueError, RuntimeError):
+            await interaction.followup.send(
+                'Message not confirmed. Check bot permissions, channel ID, cooldown and private logs.',
+                ephemeral=True
+            )
 
     @client.event
     async def on_message(message: discord.Message):
