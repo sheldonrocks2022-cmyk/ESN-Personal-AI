@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import connections
+import worker_budget
 
 TASK_KINDS = frozenset({"panel_health", "nodes_snapshot", "servers_snapshot", "esn_website_health", "github_repo_health", "browser_scan", "storage_audit"})
 # Browser inspection is deliberately limited to public ESN websites, without credentials.
@@ -86,6 +87,8 @@ def enqueue(kind, options=None, schedule_id=None):
     opts = validate(kind, options)
     ident = str(uuid.uuid4())
     with conn() as db:
+        db.execute('BEGIN IMMEDIATE')
+        worker_budget.check_room(db)
         db.execute('INSERT INTO operation_jobs(id,kind,options_json,status,created_at,schedule_id) VALUES(?,?,?,?,?,?)',
                    (ident, kind, json.dumps(opts), 'queued', now(), schedule_id))
     return ident
@@ -213,12 +216,18 @@ def _due_schedules():
         for item in due:
             # Advance to future even if worker was offline for days (no massive backlog).
             db.execute('UPDATE operation_schedules SET next_due=? WHERE id=?', (stamp + item['interval_minutes']*60, item['id']))
+            try:
+                worker_budget.check_room(db)
+            except ValueError:
+                continue  # At capacity; do not grow backlog or spin.
             db.execute('INSERT INTO operation_jobs(id,kind,options_json,status,created_at,schedule_id) VALUES(?,?,?,?,?,?)',
                        (str(uuid.uuid4()), item['kind'], item['options_json'], 'queued', now(), item['id']))
 
 
 def tick():
     _due_schedules()
+    if not worker_budget.may_start():
+        return False
     item = _claim()
     if not item:
         return False
@@ -288,6 +297,10 @@ def handle(handler):
         if path == '/api/operations/resources':
             import resources
             handler.send_json(200, resources.snapshot())
+            return True
+        if path == '/api/operations/capacity':
+            with conn() as db:
+                handler.send_json(200, worker_budget.snapshot(db))
             return True
         if path == '/api/operations/storage':
             import maintenance
