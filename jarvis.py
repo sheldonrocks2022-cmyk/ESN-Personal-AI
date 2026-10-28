@@ -12,6 +12,7 @@ import uuid
 import connections
 import creative
 import operations
+import agent
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -119,13 +120,12 @@ def chat(message):
         raise RuntimeError("OPENAI_API_KEY is not configured")
     if not isinstance(message, str) or not 1 <= len(message) <= 4000:
         raise ValueError("message must contain 1 to 4000 characters")
+    message = agent.sanitize_message(message)
     context = history(12)
-    system = "You are ESN Jarvis, a private assistant. You have no direct execution tools in chat yet. Never claim to have run tasks, inspected live infrastructure, or deployed code unless the verified job system supplies evidence. Do not request passwords or secrets in chat. Recommend owner-approved actions when needed."
-    payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": system}, *context, {"role": "user", "content": message}], "max_tokens": 700}
+    system = "You are ESN Jarvis. You can request ONLY the declared read-only check tool. If a user asks to inspect ESN hosting, use the tool to enqueue the task and mention its job ID, but never claim it has completed. No payment, customer server changes, DNS writes, logins, CAPTCHA bypasses, or arbitrary shell commands. Do not request credentials in chat; direct them to the private Connections vault."
+    payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": system}, *context, {"role": "user", "content": message}], "tools": agent.TOOLS, "tool_choice": "auto", "max_tokens": 700}
     _, body = fetch_json("https://api.openai.com/v1/chat/completions", bearer=AI_KEY, payload=payload)
-    reply = json.loads(body)["choices"][0]["message"]["content"]
-    if not isinstance(reply, str):
-        raise RuntimeError("Unexpected model response")
+    reply = agent.respond_to_tool_calls(json.loads(body)["choices"][0]["message"])
     with database() as conn:
         conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("user", message, utc_now()))
         conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("assistant", reply, utc_now()))
@@ -174,6 +174,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if operations.handle(self):
             return
+        if agent.handle(self):
+            return
         if self.path == "/health":
             return self.send_json(200, {"service": "esn-jarvis", "status": "running", "version": "0.1"})
         if not self.authorized():
@@ -204,6 +206,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if operations.handle(self):
             return
+        if agent.handle(self):
+            return
         if not self.authorized():
             return self.deny()
         try:
@@ -230,6 +234,8 @@ class Handler(BaseHTTPRequestHandler):
         if creative.handle(self):
             return
         if operations.handle(self):
+            return
+        if agent.handle(self):
             return
         return self.send_json(404, {"error": "Not found"})
 
