@@ -73,3 +73,7 @@ Jarvis supports `ESN_AI_PROVIDER=ollama` for local-only model inference at `127.
 ## Optional 8 GiB shared Jarvis budget
 
 To place Ollama, Jarvis web and Jarvis Discord under one real cgroup RAM ceiling (without touching Wings), see [8 GiB systemd budget setup](docs/RESOURCE_BUDGET_8GB.md). A safe preview script is included; no host configuration is changed by GitHub updates alone. The owner-authenticated Task Center shows verified slice usage after activation.
+
+## Step 53: owner-approved autonomous tasks
+
+Jarvis supports a durable, **read-only** multi-step workflow engine. Create an audit in the owner-only Discord bot with `/jarvis_auto goal:Audit ESN panel, website and GitHub`, review its steps, approve the plan using `/jarvis_auto_approve`, then query `/jarvis_auto_status` or the authenticated `/tasks` dashboard for actual completed results. You may cancel remaining work with `/jarvis_auto_cancel`. A saved plan never runs without approval. The fixed allowlist blocks shell commands, payments, DNS changes, destructive actions, deployments, or arbitrary websites. See [Step 53 guide](docs/STEP53_AUTONOMOUS.md). This is a limited workflow engine, not a general-purpose self-directed software operator.
