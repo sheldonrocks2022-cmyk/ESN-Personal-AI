@@ -34,3 +34,12 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - New automated tests validate persistence, cancellation, scheduling, retry limits and restrictions; local suite passed 22 tests.
 - Available for review on a development branch; **not deployed**. See [deploy checklist](DEPLOY_V04.md).
 - Remaining: secure owner-approved write actions, desktop/After Effects/CapCut control adapters, multi-agent orchestration, more advanced cinematic effects, WebAuthn passkeys, human-auth handoffs, and integrated business workflows.
+
+
+## v0.5 safe agent bridge
+
+- Added owner-session-gated `/assistant` chat dashboard with model function calling.
+- Model can ask for up to 3 read-only tasks, subject to independent server-side allowlist validation, and receives genuine job IDs. No shell, account mutation, or financial tools.
+- Added safeguards for credentials in messages and per-request CSRF checks. AI provider key is optional and server-side.
+- 28 local automated tests passed including gating, tool allowlist and mocked provider response.
+- Live deployment and credentials are not configured by this code push. See [Chat tools](CHAT_TOOLS.md).
