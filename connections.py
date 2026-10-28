@@ -202,11 +202,22 @@ def handle(handler):
     """Return True if this HTTP request was handled by the connections router."""
     path = handler.path.split('?', 1)[0]
     method = handler.command
-    if path not in ('/', '/connections', '/api/connections', '/api/connections/login', '/api/connections/logout', '/api/connections/test') and not path.startswith('/api/connections/'):
+    if path not in ('/', '/connections', '/dashboard', '/api/connections', '/api/connections/login', '/api/connections/logout', '/api/connections/test') and not path.startswith('/api/connections/'):
         return False
     if path in ('/', '/connections') and method == 'GET':
-        return handler.send_html(UI_PATH.read_bytes())
+        handler.send_html(UI_PATH.read_bytes())
+        return True
     token = token_from_cookie(handler.headers.get('Cookie', ''))
+    if path == '/dashboard' and method == 'GET':
+        if not session_valid(token):
+            handler.send_response(302)
+            handler.send_header('Location', '/connections')
+            handler.send_header('Content-Length', '0')
+            handler.send_header('Cache-Control', 'no-store')
+            handler.end_headers()
+            return True
+        handler.send_html((UI_PATH.parent / 'dashboard.html').read_bytes())
+        return True
     if path == '/api/connections/login' and method == 'POST':
         if handler.headers.get('Origin', '') != PUBLIC_ORIGIN:
             handler.send_json(403, {'error': 'Request rejected'}); return True
