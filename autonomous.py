@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 import connections
 import operations
+import worker_budget
 
 SAFE_KINDS = (
     "panel_health",
@@ -146,6 +147,7 @@ def create(goal):
         ).fetchone()[0]
         if count >= MAX_ACTIVE:
             raise ValueError("Too many active plans; complete or cancel one first")
+        worker_budget.check_room(db, len(selected))
         db.execute(
             "INSERT INTO autonomous_plans(id,goal,status,created_at) VALUES(?,?,?,?)",
             (ident, clean_goal, "awaiting_approval", now()),
@@ -293,6 +295,8 @@ def _claim():
 
 def tick():
     """Run at most one approved, allowlisted step; status is stored durably."""
+    if not worker_budget.may_start():
+        return False
     item = _claim()
     if not item:
         return False
