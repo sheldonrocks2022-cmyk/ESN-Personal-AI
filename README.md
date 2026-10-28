@@ -85,3 +85,7 @@ Use owner-only Discord `/jarvis_disk`, the `/tasks` Storage Audit panel or the `
 ## Private Discord DMs and Command Center
 
 Owner-to-bot DMs now accept ordinary text using the configured local Jarvis model. Unrecognized senders receive `This bot is private`. The owner may create time-limited, quota-limited **chat-only** guest grants through `/jarvis_dm_grant`, inspect them with `/jarvis_dm_guests` and revoke with `/jarvis_dm_revoke`. Guest chats are isolated from owner notes, tools, secrets and history. A new authenticated `/dashboard` displays live metrics and navigation, with responsive styling throughout the site. See [Private DMs and Command Center](docs/PRIVATE_DM_AND_DASHBOARD.md). No automatic access to your personal Discord DMs, YouTube uploads, or new Discord guild creation is included.
+
+## Step 55 — DM command access, search and 50-slot budget
+
+All owner commands can be accessed in a bot DM using slash commands (explicit global BOT_DM context) or the text fallback `!jarvis help`. New read-only panel node/server inventory commands and optionally configured Brave Search API commands are provided. A combined 50 **queued job** budget and memory-pressure guard keep actual execution constrained to the existing small worker loops and the shared 8 GiB systemd slice. No Discord user self-bot, token harvesting, remote node cleanup or panel mutations. [Read deployment guide](docs/STEP55_DM_WORKERS_RESEARCH.md).
