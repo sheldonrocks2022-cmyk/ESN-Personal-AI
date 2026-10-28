@@ -13,6 +13,7 @@ import connections
 import creative
 import operations
 import agent
+import local_model
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -26,6 +27,7 @@ PTERO_KEY = os.environ.get("PTERO_API_KEY", "")
 OWNER_TOKEN = os.environ.get("ESN_OWNER_TOKEN", "")
 AI_KEY = os.environ.get("OPENAI_API_KEY", "")
 AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+AI_PROVIDER = os.environ.get("ESN_AI_PROVIDER", "openai").lower().strip()
 
 
 def utc_now():
@@ -116,7 +118,9 @@ def history(limit=12):
 
 
 def chat(message):
-    if not AI_KEY:
+    if AI_PROVIDER not in ("openai", "ollama"):
+        raise RuntimeError("Unsupported ESN_AI_PROVIDER")
+    if AI_PROVIDER == "openai" and not AI_KEY:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     if not isinstance(message, str) or not 1 <= len(message) <= 4000:
         raise ValueError("message must contain 1 to 4000 characters")
@@ -124,8 +128,12 @@ def chat(message):
     context = history(12)
     system = "You are ESN Jarvis. You can request ONLY the declared read-only check tool. If a user asks to inspect ESN hosting, use the tool to enqueue the task and mention its job ID, but never claim it has completed. No payment, customer server changes, DNS writes, logins, CAPTCHA bypasses, or arbitrary shell commands. Do not request credentials in chat; direct them to the private Connections vault."
     payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": system}, *context, {"role": "user", "content": message}], "tools": agent.TOOLS, "tool_choice": "auto", "max_tokens": 700}
-    _, body = fetch_json("https://api.openai.com/v1/chat/completions", bearer=AI_KEY, payload=payload)
-    reply = agent.respond_to_tool_calls(json.loads(body)["choices"][0]["message"])
+    if AI_PROVIDER == "ollama":
+        model_message = local_model.chat(payload["messages"], agent.TOOLS)
+    else:
+        _, body = fetch_json("https://api.openai.com/v1/chat/completions", bearer=AI_KEY, payload=payload)
+        model_message = json.loads(body)["choices"][0]["message"]
+    reply = agent.respond_to_tool_calls(model_message)
     with database() as conn:
         conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("user", message, utc_now()))
         conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("assistant", reply, utc_now()))
@@ -181,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return self.deny()
         if self.path == "/api/status":
-            return self.send_json(200, {"panel": PANEL_URL, "ptero_configured": bool(PTERO_KEY), "ai_configured": bool(AI_KEY), "allowed_jobs": sorted(ALLOWED_JOBS)})
+            return self.send_json(200, {"panel": PANEL_URL, "ptero_configured": bool(PTERO_KEY), "ai_configured": bool(AI_KEY) if AI_PROVIDER == "openai" else AI_PROVIDER == "ollama", "ai_provider": AI_PROVIDER, "allowed_jobs": sorted(ALLOWED_JOBS)})
         if self.path == "/api/jobs":
             with database() as conn:
                 rows = conn.execute("SELECT id,kind,status,created_at,finished_at,error FROM jobs ORDER BY created_at DESC LIMIT 30").fetchall()
