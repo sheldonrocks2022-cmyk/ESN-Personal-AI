@@ -1,30 +1,29 @@
 # ESN Jarvis / Personal AI
 
-This is the recovered ESN Tab.bot-style AI project. Development resumes here; nothing from the earlier ESN hosting infrastructure has been replaced.
+A secure, incremental ESN personal assistant for Pterodactyl Hosting, coding, business operations and panel improvements. This repository is **public**: never commit credentials, customer records, backups, private IPs, or production configuration.
 
-**This is a public GitHub repository. NEVER upload tokens, production secrets, customer records or backups.**
+## Verified scope of v0.1
 
-## Implemented v0.1
-- Owner-token authenticated local HTTP API (loopback-only by default)
-- Optional AI chat via an owner-provided OpenAI API key; conversation history stored in local SQLite
-- Background jobs with real UUIDs and SQLite status records
-- Read-only Pterodactyl panel health, nodes and servers
-- Whitelisted jobs; no production mutations
-- Automated unit tests via GitHub Actions (Python 3.13)
+- Owner-token authenticated HTTP API (loopback-only by default)
+- Optional model-backed chat with persistent local SQLite conversation history
+- Persistent audit trail of safe background jobs: panel health, node snapshots and server snapshots
+- Pterodactyl **read-only** Application API calls (first page only; pagination returned)
+- Explicit task allowlist; no ability to suspend, delete, restart, modify or provision customers
+- No deployment to ESN nodes or panel yet
 
-**Not built yet:** WhatsApp, Discord chat, autonomous browser, multi-agent worker system, GitHub editing agents, Stripe billing automations, customer server provisioning, ESN Guardian/Minecraft operations, media rendering and automatic Pterodactyl panel redesign. See [master roadmap](docs/ROADMAP.md).
+**Not implemented:** WhatsApp, Discord chat, multi-agent orchestration, autonomous browser, Stripe, GitHub writes, media rendering, voice, customer provisioning, panel redesign automation. See `docs/ROADMAP.md`.
 
-## Setup: isolated environment only
+## Setup (isolated host only)
 
-Requirements: Python 3.11 or newer; no third-party packages. Use the approved isolated node, **never as root on a customer node**.
+Requires Python 3.11+ (Python 3.13 supported), no third-party packages.
 
-1. Get this repo onto the isolated host (via Git/SSH).
-2. Configure environment variables from [the template](.env.example). Make `ESN_OWNER_TOKEN` a random 32+ character secret and do not send it in chat.
-3. For monitoring, configure a **read-only** Pterodactyl Application API key from [panel.esnoffical.com/admin/api](https://panel.esnoffical.com/admin/api).
+1. Clone the repository to an isolated VPS or private dev environment. Do not run as root or on a Wings production host.
+2. Configure the variables in `.env.example` as environment variables in your process manager. Use a cryptographically random token of at least 32 characters. **Never post tokens in chat.**
+3. Use a restricted Pterodactyl **Application API** key with read permissions for nodes and servers, created at `https://panel.esnoffical.com/admin/api`. Leave blank to use chat only.
 4. Run `python3 -m unittest discover -s tests -v`, then `python3 jarvis.py`.
-5. Keep `ESN_BIND=127.0.0.1`. Use Termius SSH port forwarding or a properly secured HTTPS reverse proxy; never expose plain HTTP directly to the internet.
+5. Keep `ESN_BIND=127.0.0.1`. Access through Termius SSH port forwarding or a properly authenticated HTTPS reverse proxy; never expose plain HTTP directly to the public internet.
 
-### API examples (from the isolated host)
+## Example from the same host
 
 ```bash
 curl -H "Authorization: Bearer $ESN_OWNER_TOKEN" http://127.0.0.1:8765/api/status
@@ -32,12 +31,31 @@ curl -H "Authorization: Bearer $ESN_OWNER_TOKEN" -H 'Content-Type: application/j
 curl -H "Authorization: Bearer $ESN_OWNER_TOKEN" http://127.0.0.1:8765/api/jobs
 ```
 
-Chat: with `OPENAI_API_KEY` configured, POST `{"message":"Hello Jarvis"}` to `/api/chat`. Recent conversation text goes to the configured AI provider. Do not send customer details or credentials.
+To chat, configure `OPENAI_API_KEY` and POST `{"message":"Hi Jarvis"}` to `/api/chat`. This sends your message and recent conversation context to the configured model provider. Do not include sensitive server/customer information.
 
-## Security and maturity
+**Security:** This is an owner-only prototype, not a hardened public service. SQLite history is stored unencrypted on disk; encrypt the volume and restrict filesystem permissions. Production requires TLS termination, rate limiting, monitoring, backups and more exhaustive verification. Never run AI-generated instructions directly on production infrastructure without explicit approval.
 
-This is an owner-only **prototype**, not a production hardened service. It has no customer-server write permissions. The database is stored in plaintext; use volume encryption and filesystem permissions. Future stages need TLS, rate limiting, safe backups and a stronger worker queue.
+## v0.2 add-on: PIN-gated Connections dashboard and Discord bridge
 
-## Panel redesign
+- Mobile Connections interface at `/connections`; requires a six-digit PIN **and** a separate randomly generated owner token.
+- Encrypted credential vault (`cryptography.Fernet`) for website logins and approved API tokens. Secrets cannot be retrieved through the dashboard API or sent to the language model.
+- HttpOnly session cookie, 30-minute expiry, CSRF/origin protection, and failed-login throttling.
+- Save, list and remove integrations; verify Discord bot token identity against the Discord API.
+- Optional owner-only Discord slash commands (`/jarvis_status`, `/jarvis_ask`); bot access requires owner-provided Discord bot credentials and user ID.
+- Added automated tests. No production server changes made.
 
-A [preliminary audit](docs/PANEL_AUDIT.md) documents your existing theme scripts in `Esn-2`. The public live panel could not be fully inspected, so no design changes were deployed. Staging, screenshots, visual testing and owner approval come before touching production.
+**Setup on the isolated Jarvis VPS:**
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m connections generate-key   # store result privately as ESN_VAULT_KEY
+python3 -m connections hash-pin       # enter PIN privately; store result as ESN_DASHBOARD_PIN_HASH
+python3 -m unittest discover -s tests -v
+python3 jarvis.py
+```
+
+The six-digit PIN given in chat is **not hardcoded**. Configure it via the interactive prompt above, and consider rotating it because chat content is not a private password manager. You must configure `ESN_OWNER_TOKEN` separately. Store the secrets in a protected systemd `EnvironmentFile` or other secret manager; **never commit real values to GitHub**. Back up the vault key securely because losing it makes credentials unrecoverable.
+
+To use the optional Discord bot bridge, save a bot token as type `discord_bot` through the dashboard, then set `DISCORD_CONNECTION_ID` (the saved connection's ID), `DISCORD_OWNER_USER_ID`, and optionally `DISCORD_GUILD_ID` in the process environment. Install `discord.py` with `python3 -m pip install 'discord.py>=2.5,<3'`, then run `python3 discord_bridge.py` as a separate restricted service. You still must create/authorize the Discord application yourself in its Developer Portal. Never paste bot credentials into chat.
+
+Use **HTTPS behind Nginx** with `ESN_PUBLIC_ORIGIN=https://jarvis.esnoffical.com`, `ESN_BIND=127.0.0.1`, and `ESN_COOKIE_SECURE=1`. No DNS or production deployment has been performed yet. See [Spaceship DNS & deployment](docs/DNS_AND_DEPLOY.md). The browser automation feature that could actually use stored website credentials is a later milestone.

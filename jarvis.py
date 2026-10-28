@@ -8,6 +8,8 @@ import os
 import sqlite3
 import threading
 import uuid
+
+import connections
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -55,6 +57,7 @@ def fetch_json(url, bearer=None, payload=None):
         with urlopen(req, timeout=12) as response:
             return response.status, response.read(1024 * 1024).decode("utf-8")
     except HTTPError as exc:
+        # Keep the HTTP status, but never expose upstream response bodies.
         raise RuntimeError(f"Upstream returned HTTP {exc.code}") from None
     except (URLError, TimeoutError) as exc:
         raise RuntimeError(f"Upstream request failed: {type(exc).__name__}") from None
@@ -95,6 +98,7 @@ def execute_job(job_id, kind):
     try:
         result = run_panel_job(kind)
     except Exception as exc:
+        # Never persist URLs containing credentials or upstream content.
         with database() as conn:
             conn.execute("UPDATE jobs SET status='failed', finished_at=?, error=? WHERE id=?", (utc_now(), str(exc)[:160], job_id))
     else:
@@ -129,12 +133,27 @@ def chat(message):
 class Handler(BaseHTTPRequestHandler):
     server_version = "ESN-Jarvis/0.1"
 
-    def send_json(self, code, value):
+    def send_html(self, body):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_json(self, code, value, cookie=None):
         body = json.dumps(value).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -147,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(401, {"error": "Unauthorized"})
 
     def do_GET(self):
+        if connections.handle(self):
+            return
         if self.path == "/health":
             return self.send_json(200, {"service": "esn-jarvis", "status": "running", "version": "0.1"})
         if not self.authorized():
@@ -171,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(404, {"error": "Not found"})
 
     def do_POST(self):
+        if connections.handle(self):
+            return
         if not self.authorized():
             return self.deny()
         try:
@@ -191,7 +214,13 @@ class Handler(BaseHTTPRequestHandler):
         except (RuntimeError, KeyError, IndexError) as exc:
             return self.send_json(503, {"error": str(exc)[:160]})
 
+    def do_DELETE(self):
+        if connections.handle(self):
+            return
+        return self.send_json(404, {"error": "Not found"})
+
     def log_message(self, format, *args):
+        # Omit potentially sensitive query paths and headers from access logs.
         pass
 
 
@@ -199,11 +228,12 @@ def main():
     if len(OWNER_TOKEN) < 32:
         raise SystemExit("Set ESN_OWNER_TOKEN to a random secret of at least 32 characters")
     clean_panel_url(PANEL_URL)
+    connections.validate_configuration()
     with database() as conn:
         conn.execute("UPDATE jobs SET status='interrupted', finished_at=? WHERE status IN ('running','queued')", (utc_now(),))
     host = os.environ.get("ESN_BIND", "127.0.0.1")
     port = int(os.environ.get("ESN_PORT", "8765"))
-    print(f"ESN Jarvis v0.1 listening at http://{host}:{port} (read-only Pterodactyl)")
+    print(f"ESN Jarvis v0.2 listening at http://{host}:{port} (read-only Pterodactyl)")
     ThreadingHTTPServer((host, port), Handler).serve_forever()
 
 if __name__ == "__main__":
