@@ -11,6 +11,7 @@ import operations
 import research
 import managed_bots
 import worker_budget
+import local_model
 
 PREFIX = "!jarvis "
 
@@ -22,7 +23,7 @@ def is_command(message):
 def help_text():
     return (
         "Jarvis owner DM commands:\n"
-        "!jarvis help | status | disk | capacity | tasks | schedules\n"
+        "!jarvis help | status | disk | capacity | ai | tasks | schedules\n"
         "!jarvis ask <question> | !jarvis search <query>\n"
         "!jarvis bots | bot <connection ID> | bot-send <connection ID> <channel ID> | <message>\n"
         "!jarvis panel nodes | panel servers (read-only)\n"
@@ -87,6 +88,11 @@ def handle(message, *, owner_id=None):
                     (d["occupied_slots"], d["queued_capacity"], d["available_slots"],
                      d["max_read_only_check_threads"], d["memory_slice_limit_active"],
                      d["memory_pressure_pauses_new_checks"]))
+        if name == "ai":
+            info = local_model.profile_status()
+            return ("Jarvis local AI: " + info["fast_model"] + " / profile " + info["profile"] +
+                    "; optional quality configured: " + str(info["quality_model_configured"]) +
+                    ". No cloud API required. Models are not downloaded automatically.")
         if name == "ask" and arg:
             import jarvis
             return jarvis.chat(arg)[:1800]
