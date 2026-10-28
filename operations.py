@@ -289,6 +289,10 @@ def handle(handler):
             import resources
             handler.send_json(200, resources.snapshot())
             return True
+        if path == '/api/operations/storage':
+            import maintenance
+            handler.send_json(200, maintenance.report())
+            return True
     if handler.command == 'POST':
         if not _csrf(handler):
             handler.send_json(403, {'error': 'Request rejected'}); return True
