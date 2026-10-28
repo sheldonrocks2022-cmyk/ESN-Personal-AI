@@ -105,6 +105,8 @@ def steps_for_goal(goal):
     # Reuse the existing token detector; never persist credentials in a goal.
     from agent import sanitize_message
     sanitize_message(goal)
+    if re.search(r"https?://|www\.", goal, re.I):
+        raise ValueError("Use named ESN targets rather than supplying URLs")
     if UNSAFE.search(goal):
         raise ValueError("This version only supports read-only audits; no changes or commands")
     if not INTENT.search(goal):
@@ -190,8 +192,8 @@ def cancel(ident):
         )
         # An in-flight read-only HTTP request cannot be interrupted safely.
         db.execute(
-            "UPDATE autonomous_steps SET status='cancelled',finished_at=? "
-            "WHERE plan_id=? AND status='queued'", (now(), ident)
+            "UPDATE autonomous_steps SET status='cancelled',finished_at=?,lease_until=NULL "
+            "WHERE plan_id=? AND status IN ('queued','running')", (now(), ident)
         )
         db.commit()
     return "cancelled"
