@@ -62,8 +62,20 @@ def _budget(identity):
 
 def handle(handler):
     path = urlsplit(handler.path).path
-    if path not in ("/api/search", "/api/search/status"):
+    if path not in ("/search", "/api/search", "/api/search/status"):
         return False
+    if path == "/search" and handler.command == "GET":
+        token = connections.token_from_cookie(handler.headers.get("Cookie", ""))
+        if not connections.session_valid(token):
+            handler.send_response(302)
+            handler.send_header("Location", "/connections")
+            handler.send_header("Content-Length", "0")
+            handler.send_header("Cache-Control", "no-store")
+            handler.end_headers()
+            return True
+        from pathlib import Path
+        handler.send_html((Path(__file__).with_name("web") / "search.html").read_bytes())
+        return True
     if not _authorize(handler):
         handler.send_json(401, {"error": "Search requires owner login or a scoped search API key"})
         return True
