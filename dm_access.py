@@ -46,7 +46,7 @@ def db():
     try:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout=20000")
-        connection.execute(SCHEMA)
+        connection.executescript(SCHEMA)
         yield connection
     finally:
         connection.close()
