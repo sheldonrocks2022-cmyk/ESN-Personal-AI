@@ -29,13 +29,25 @@ def _key():
         import connections
         # Only read this known, owner-configured connection. Never expose key.
         return connections.read_secret_local(vault_id)
-    return os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
+    direct = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
+    if direct:
+        return direct
+    import connections
+    for record in connections.list_connections():
+        if record["kind"] == "search":
+            return connections.read_secret_local(record["id"])
+    return ""
 
 
 def enabled():
-    return (backend() == "searxng" or
-            (backend() == "brave" and bool(
-                os.environ.get("BRAVE_SEARCH_CONNECTION_ID") or os.environ.get("BRAVE_SEARCH_API_KEY"))))
+    if backend() == "searxng":
+        return True
+    if backend() != "brave":
+        return False
+    if os.environ.get("BRAVE_SEARCH_CONNECTION_ID") or os.environ.get("BRAVE_SEARCH_API_KEY"):
+        return True
+    import connections
+    return any(row["kind"] == "search" for row in connections.list_connections())
 
 
 def search(query):
