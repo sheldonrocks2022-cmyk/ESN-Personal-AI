@@ -12,6 +12,7 @@ import uuid
 import connections
 import creative
 import operations
+import autonomous
 import agent
 import local_model
 import memory_store
@@ -195,6 +196,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if operations.handle(self):
             return
+        if autonomous.handle(self):
+            return
         if agent.handle(self):
             return
         if self.path == "/health":
@@ -227,6 +230,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if operations.handle(self):
             return
+        if autonomous.handle(self):
+            return
         if agent.handle(self):
             return
         if not self.authorized():
@@ -256,6 +261,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if operations.handle(self):
             return
+        if autonomous.handle(self):
+            return
         if agent.handle(self):
             return
         return self.send_json(404, {"error": "Not found"})
@@ -273,6 +280,7 @@ def main():
     with database() as conn:
         conn.execute("UPDATE jobs SET status='interrupted', finished_at=? WHERE status IN ('running','queued')", (utc_now(),))
     operations.start_worker()
+    autonomous.start_worker()
     creative.start_worker()
     host = os.environ.get("ESN_BIND", "127.0.0.1")
     port = int(os.environ.get("ESN_PORT", "8765"))

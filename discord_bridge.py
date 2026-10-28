@@ -9,6 +9,7 @@ import os
 from connections import read_secret_local
 import jarvis
 import memory_store
+import autonomous
 
 
 def run():
@@ -88,6 +89,78 @@ def run():
             await interaction.followup.send('Memory deleted.' if removed else 'No matching memory topic found.', ephemeral=True)
         except ValueError:
             await interaction.followup.send('Invalid memory topic.', ephemeral=True)
+
+    @tree.command(name='jarvis_auto', description='Draft a safe multi-step ESN health audit (approval required)')
+    @app_commands.describe(goal='Example: Audit ESN panel, website and GitHub')
+    async def auto(interaction: discord.Interaction, goal: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            plan_id = await asyncio.to_thread(autonomous.create, goal)
+            plan = await asyncio.to_thread(autonomous.get, plan_id)
+            steps = '\n'.join(
+                f'{item["position"] + 1}. {item["kind"].replace("_", " ")}'
+                for item in plan['steps']
+            )
+            await interaction.followup.send(
+                f'**Draft only — no steps have run.**\n'
+                f'Plan ID: `{plan_id}`\n'
+                f'{steps}\n'
+                f'Use /jarvis_auto_approve with this ID to execute the read-only checks.',
+                ephemeral=True,
+            )
+        except ValueError as exc:
+            await interaction.followup.send(f'Cannot create that plan: {str(exc)[:170]}', ephemeral=True)
+        except Exception:
+            await interaction.followup.send('Unable to create plan. See private server logs.', ephemeral=True)
+
+    @tree.command(name='jarvis_auto_approve', description='Owner approval to execute one saved read-only plan')
+    @app_commands.describe(plan_id='Plan UUID from /jarvis_auto')
+    async def auto_approve(interaction: discord.Interaction, plan_id: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await asyncio.to_thread(autonomous.approve, plan_id)
+            await interaction.followup.send(
+                'Approved. Jarvis will run the read-only steps in order. '
+                'Check /jarvis_auto_status or the Task Center for real progress.', ephemeral=True
+            )
+        except (ValueError, KeyError) as exc:
+            await interaction.followup.send(f'Could not approve plan: {str(exc)[:170]}', ephemeral=True)
+
+    @tree.command(name='jarvis_auto_status', description='See actual results and progress of an autonomous plan')
+    @app_commands.describe(plan_id='Plan UUID from /jarvis_auto')
+    async def auto_status(interaction: discord.Interaction, plan_id: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            plan = await asyncio.to_thread(autonomous.get, plan_id)
+            steps = '\n'.join(
+                f'{item["position"] + 1}. {item["kind"]}: {item["status"]}'
+                + (' (retry ' + str(item['attempts']) + ')' if item['status'] == 'queued' and item['attempts'] else '')
+                for item in plan['steps']
+            )
+            await interaction.followup.send(
+                f'**Plan {plan["status"]} — {plan["completed_steps"]}/{plan["total_steps"]} completed**\n'
+                f'{steps}\n'
+                f'Open https://jarvis.esnoffical.com/tasks to view verified results.', ephemeral=True
+            )
+        except (ValueError, KeyError):
+            await interaction.followup.send('Plan not found or invalid ID.', ephemeral=True)
+
+    @tree.command(name='jarvis_auto_cancel', description='Cancel unstarted steps in a Jarvis plan')
+    @app_commands.describe(plan_id='Plan UUID from /jarvis_auto')
+    async def auto_cancel(interaction: discord.Interaction, plan_id: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            outcome = await asyncio.to_thread(autonomous.cancel, plan_id)
+            await interaction.followup.send(
+                f'Plan status: {outcome}. An in-flight read-only request may finish before stopping.',
+                ephemeral=True,
+            )
+        except (ValueError, KeyError):
+            await interaction.followup.send('Plan not found or invalid ID.', ephemeral=True)
 
     @client.event
     async def on_ready():

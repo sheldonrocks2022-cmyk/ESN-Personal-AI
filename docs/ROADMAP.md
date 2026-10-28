@@ -49,3 +49,11 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - Optional parent systemd slice with MemoryHigh=7G and MemoryMax=8G across Ollama, Jarvis web, and Discord; preserves existing tighter individual caps.
 - Read-only live cgroup usage indicator in Task Center; no claim of an active cap until actually applied and services restarted into slice.
 - See [8 GiB resource budget](RESOURCE_BUDGET_8GB.md). AI capability expansion is separate, staged, and never guaranteed by raising model memory.
+
+## Step 53: owner-approved autonomous read-only workflow engine
+
+- Added persistent multi-step plans stored in SQLite and executed sequentially by a bounded background worker after explicit owner approval.
+- Safe goal parser supports health checks of ESN panel, public website, GitHub, nodes and servers. Invalid/destructive requests are rejected rather than partially executed. Browser scans, shell, API writes, DNS, Stripe, customer changes, and arbitrary URLs are excluded.
+- Owner-only Discord `/jarvis_auto`, `/jarvis_auto_approve`, `/jarvis_auto_status`, `/jarvis_auto_cancel`; Task Center includes preview, approval, cancellation, progress and verified per-step results.
+- One read-only step at a time; persistent retry-once and crash lease recovery, bounded plan length (five checks) and active plan count (eight); cooperative cancellation. No uncontrolled model-generated commands.
+- This is a guarded orchestration foundation, **not** unconstrained computer use or permission to alter production systems. Jarvis and Ollama stay in the existing shared 8 GiB slice.
