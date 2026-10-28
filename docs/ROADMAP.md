@@ -43,3 +43,9 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - Added safeguards for credentials in messages and per-request CSRF checks. AI provider key is optional and server-side.
 - 28 local automated tests passed including gating, tool allowlist and mocked provider response.
 - Live deployment and credentials are not configured by this code push. See [Chat tools](CHAT_TOOLS.md).
+
+## Shared 8 GiB deployment ceiling
+
+- Optional parent systemd slice with MemoryHigh=7G and MemoryMax=8G across Ollama, Jarvis web, and Discord; preserves existing tighter individual caps.
+- Read-only live cgroup usage indicator in Task Center; no claim of an active cap until actually applied and services restarted into slice.
+- See [8 GiB resource budget](RESOURCE_BUDGET_8GB.md). AI capability expansion is separate, staged, and never guaranteed by raising model memory.
