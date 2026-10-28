@@ -133,6 +133,8 @@ def chat(message):
     # Model-independent route for an explicit, single panel health-check job.
     # This prevents small local models from inventing invalid tool parameters.
     direct_reply = agent.queue_explicit_panel_job(message)
+    if direct_reply is None:
+        direct_reply = agent.explicit_web_search(message)
     if direct_reply is not None:
         with database() as conn:
             conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("user", message, utc_now()))
