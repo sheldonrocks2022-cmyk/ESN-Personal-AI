@@ -50,19 +50,19 @@ def queue_explicit_panel_job(message, enqueue=None):
     if not isinstance(message, str):
         return None
     lower = message.lower()
-    if not re.search(r'\\b(?:panel|pterodactyl)\\b', lower):
+    if not re.search(r'\b(?:panel|pterodactyl)\b', lower):
         return None
-    if not re.search(r'\\b(?:job|task|health.check)\\b', lower):
+    if not re.search(r'\b(?:job|task|health.check)\b', lower):
         return None
-    if not re.search(r'\\b(?:check|queue|create|run|start)\\b', lower):
+    if not re.search(r'\b(?:check|queue|create|run|start)\b', lower):
         return None
     # Do not silently drop a request for additional checks.
-    if re.search(r'\\b(?:nodes?|servers?|website|github|browser)\\b', lower):
+    if re.search(r'\b(?:nodes?|servers?|website|github|browser)\b', lower):
         return None
     if enqueue is None:
         enqueue = operations.enqueue
     ident = enqueue('panel_health', {})
-    return f'Queued **panel_health** (job ID \`{ident}\`). Check the Task Center for real results; this task is not finished yet.'
+    return f'Queued **panel_health** (job ID `{ident}`). Check the Task Center for real results; this task is not finished yet.'
 
 
 def respond_to_tool_calls(message, enqueue=None):
