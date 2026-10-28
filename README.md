@@ -81,3 +81,7 @@ Jarvis supports a durable, **read-only** multi-step workflow engine. Create an a
 ## Node storage diagnostics (safe first phase)
 
 Use owner-only Discord `/jarvis_disk`, the `/tasks` Storage Audit panel or the `storage_audit` read-only task to see disk utilization and *estimates* for aged Jarvis-owned temporary files on the VPS where Jarvis runs. No deletion, root access, arbitrary paths, remote-node scanning or customer storage reads are added. Follow the [Node Maintenance Roadmap](docs/NODE_MAINTENANCE.md) for separate authenticated agent rollout and approval-gated cleanup. The shared 8 GiB Jarvis limit remains unchanged.
+
+## Private Discord DMs and Command Center
+
+Owner-to-bot DMs now accept ordinary text using the configured local Jarvis model. Unrecognized senders receive `This bot is private`. The owner may create time-limited, quota-limited **chat-only** guest grants through `/jarvis_dm_grant`, inspect them with `/jarvis_dm_guests` and revoke with `/jarvis_dm_revoke`. Guest chats are isolated from owner notes, tools, secrets and history. A new authenticated `/dashboard` displays live metrics and navigation, with responsive styling throughout the site. See [Private DMs and Command Center](docs/PRIVATE_DM_AND_DASHBOARD.md). No automatic access to your personal Discord DMs, YouTube uploads, or new Discord guild creation is included.
