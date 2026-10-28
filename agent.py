@@ -40,6 +40,26 @@ def sanitize_message(value):
     return value
 
 
+def explicit_web_search(message):
+    """Search ONLY when the owner explicitly names the exact public query.
+
+    Never invent a search from model tool calls or include system/owner memory
+    in a provider query. Search results are untrusted third-party text.
+    """
+    if not isinstance(message, str):
+        return None
+    match = re.fullmatch(
+        r"\s*(?:search (?:the )?web for|look up online|find online information about)\s+(.{2,240})\s*",
+        message, flags=re.I
+    )
+    if not match:
+        return None
+    import research
+    query = match.group(1).strip()
+    response = research.search(query)
+    return research.format_results(response)
+
+
 def queue_explicit_panel_job(message, enqueue=None):
     """Reliably route an explicit panel-health *job* request without model ambiguity.
 

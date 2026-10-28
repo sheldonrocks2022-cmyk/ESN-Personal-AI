@@ -15,6 +15,8 @@ import operations
 import autonomous
 import agent
 import local_model
+import research_api
+import managed_bots
 import memory_store
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -131,6 +133,8 @@ def chat(message):
     # Model-independent route for an explicit, single panel health-check job.
     # This prevents small local models from inventing invalid tool parameters.
     direct_reply = agent.queue_explicit_panel_job(message)
+    if direct_reply is None:
+        direct_reply = agent.explicit_web_search(message)
     if direct_reply is not None:
         with database() as conn:
             conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("user", message, utc_now()))
@@ -198,6 +202,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if autonomous.handle(self):
             return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
+            return
         if agent.handle(self):
             return
         if self.path == "/health":
@@ -232,6 +240,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if autonomous.handle(self):
             return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
+            return
         if agent.handle(self):
             return
         if not self.authorized():
@@ -262,6 +274,10 @@ class Handler(BaseHTTPRequestHandler):
         if operations.handle(self):
             return
         if autonomous.handle(self):
+            return
+        if research_api.handle(self):
+            return
+        if managed_bots.handle(self):
             return
         if agent.handle(self):
             return

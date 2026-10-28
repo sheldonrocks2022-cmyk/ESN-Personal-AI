@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b1427"><title>ESN Jarvis · Managed Discord Bots</title>
+<style>
+:root{color-scheme:dark;font:15px/1.5 system-ui,sans-serif;color:#edf2ff;background:#090f1d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% 0,#273e7299,transparent 45%),#090f1d;min-height:100vh}
+a{color:#bbc6ff}header{background:#101b30ed;border-bottom:1px solid #354363;padding:17px max(18px,calc((100vw - 1060px)/2));display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.logo{font-weight:850;text-decoration:none;letter-spacing:.08em}.logo b{color:#b5a6ff}
+nav{display:flex;gap:11px;flex-wrap:wrap;font-size:13px}
+main{max-width:1060px;margin:40px auto;padding:0 20px 60px}
+h1{font-size:clamp(30px,6vw,50px);line-height:1.1;letter-spacing:-.04em;margin:10px 0}
+h2{font-size:20px;margin:0 0 10px}
+p{color:#b5c5df}.overline{color:#69dfc6;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:850}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:linear-gradient(145deg,#17233b,#10192b);border:1px solid #354762;border-radius:19px;padding:23px;margin-top:20px}
+label{display:block;color:#cad5ef;font-weight:700;margin:14px 0 7px}
+input,textarea,select{background:#0c1629;border:1px solid #3c5171;border-radius:10px;color:#fff;font:inherit;width:100%;padding:12px}
+textarea{resize:vertical;min-height:100px}
+button{font:inherit;border-radius:10px;background:#846ef1;color:#fff;padding:10px 17px;border:0;cursor:pointer}
+button.secondary{background:#324364}button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+small,.muted{color:#98add0}#result{white-space:pre-wrap;overflow-wrap:anywhere;min-height:38px}
+details{margin-top:12px}summary{cursor:pointer}
+@media(max-width:750px){main{margin:24px auto}.grid{grid-template-columns:1fr}.card{padding:17px}header{padding:16px}}
+</style></head><body>
+<header><a class="logo" href="/dashboard">ESN <b>JARVIS</b></a>
+<nav aria-label="Jarvis"><a href="/dashboard">Overview</a><a href="/assistant">Assistant</a><a href="/tasks">Tasks</a><a href="/search">Research</a><a href="/connections">Connections</a></nav></header>
+<main><div class="overline">Owner-only / controlled bot identities</div>
+<h1>Manage your Discord bots.</h1>
+<p>Connect a bot token once in the encrypted <a href="/connections">Connections</a> vault. Here Jarvis can verify the bot, inspect a guild text channel and send a single message after your confirmation. This does not log in as your personal Discord account.</p>
+<div class="grid">
+<section class="card"><h2>Choose an authorized bot</h2>
+<label for="bot">Saved bot token</label><select id="bot"><option value="">Loading…</option></select>
+<div class="actions"><button type="button" id="verify">Verify bot identity</button><button type="button" id="reload" class="secondary">Refresh list</button></div>
+<p class="muted">Only encrypted credentials classified as Discord bots can be used. Bot token bytes never appear in the page.</p>
+</section>
+<section class="card"><h2>Guild channel inspection</h2>
+<label for="channel">Text or announcement channel ID</label><input id="channel" placeholder="1234567890123456789" inputmode="numeric" maxlength="21">
+<div class="actions"><button id="preview" type="button">Verify channel</button></div>
+<p class="muted">No private DMs, group DMs, bulk messages, @everyone pings or token retrieval. The bot must already have permissions in this channel.</p>
+</section></div>
+<section class="card"><h2>Send as the selected bot</h2>
+<label for="content">Message for the verified guild channel</label><textarea id="content" maxlength="1200" placeholder="Write the exact announcement to send as your selected bot."></textarea>
+<div class="actions"><button type="button" id="send" disabled>Review & send one message</button></div>
+<p class="muted">Every message requires direct owner confirmation. Limit: 10 attempts per bot / 24 hours, 30 across all managed bots, at least 30 seconds between attempts per bot. Results are audited without storing your message body.</p>
+</section>
+<section class="card"><h2>Live result</h2><p id="result" role="status">Sign in to Connections to use managed bots.</p>
+<details><summary>Security boundaries</summary><p>Jarvis only uses official Discord Bot REST authorization. A bot token authorizes that specific bot and cannot read your personal Discord inbox or grant access to an unrelated bot. The guest DM system stays isolated from these owner actions.</p></details></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let csrf='',preview=null;
+async function req(path,body){const res=await fetch(path,{credentials:'same-origin',cache:'no-store',method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(csrf?{'X-ESN-CSRF':csrf}:{}),...(body?{'Origin':location.origin}:{})},...(body?{body:JSON.stringify(body)}:{})});const data=await res.json().catch(()=>({error:'Invalid response'}));if(!res.ok)throw Error(data.error||'Request failed');return data}
+function print(message){$('result').textContent=message}
+function reset(){preview=null;$('send').disabled=true}
+async function load(){try{const auth=await req('/api/connections');csrf=auth.csrf;const data=await req('/api/bots');const select=$('bot');select.replaceChildren();let opt=document.createElement('option');opt.value='';opt.textContent='Select a bot';select.append(opt);for(const item of data.bots){opt=document.createElement('option');opt.value=item.id;opt.textContent=item.label;select.append(opt)}reset();print('Loaded '+data.bots.length+' encrypted bot connection(s).')}catch(e){print('Sign in at Connections first. '+e.message)}}
+function selected(){if(!$('bot').value)throw Error('Select a saved Discord bot connection');return $('bot').value}
+$('bot').onchange=reset;$('channel').oninput=reset;
+$('verify').onclick=async()=>{try{print('Verifying bot…');const d=await req('/api/bots/identity',{connection_id:selected()});print('Connected as '+d.bot_name+' ('+d.bot_id+').')}catch(e){print(e.message)}};
+$('preview').onclick=async()=>{try{print('Checking destination…');const d=await req('/api/bots/channel',{connection_id:selected(),channel_id:$('channel').value.trim()});preview={id:$('bot').value,channel:d.channel_id,guild:d.guild_id};$('send').disabled=false;print('Verified #'+d.channel_name+' in guild '+d.guild_id+'. No message has been sent.')}catch(e){reset();print(e.message)}};
+$('send').onclick=async()=>{try{
+const id=selected(),channel=$('channel').value.trim(),message=$('content').value.trim();
+if(!preview||preview.id!==id||preview.channel!==channel)throw Error('Verify this channel again before sending.');
+if(message.length<1||message.length>1200)throw Error('Message must be 1–1200 characters.');
+if(!confirm('Send exactly one message as this bot to the verified guild channel?'))return;
+$('send').disabled=true;const data=await req('/api/bots/send',{connection_id:id,channel_id:channel,content:message,confirm:true});print('Discord confirmed message '+data.message_id+' in channel '+data.channel_id+'.');$('content').value='';reset();
+}catch(e){print(e.message);reset()}};
+$('reload').onclick=load;load();
+</script></body></html>

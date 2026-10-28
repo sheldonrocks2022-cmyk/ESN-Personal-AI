@@ -76,3 +76,11 @@ Milestones are goals, not completed features. Each requires testing and evidence
 ## Step 55 — owner-only DM command fallback, capacity, and research
 
 Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read-only Pterodactyl node/server inventory, optional Brave Search API using encrypted vault, and admission-controlled 50 combined **pending/running** read-only task slots with memory-pressure backoff. Does not mean 50 active AI models, official Discord bot impersonation, remote cleanup, or Pterodactyl server mutation. See [Step 55](STEP55_DM_WORKERS_RESEARCH.md).
+
+## Step 56: encrypted bot control, personal search API and local AI profiles
+
+- Delivered protected `/bots` bot token identities, guild-only channel preview and individual owner-confirmed Discord messages; no self-bot or customer secret scraping.
+- Delivered `/api/search` with owner session/CSRF or separate search-scoped API key, bounded backend results, rate limiting, and optional SearXNG loopback/Brave providers. Browser `/search` and existing owner DM commands use the same backend.
+- Delivered optional local AI profiles (`efficient`, `adaptive`, `quality`) using only pre-installed Ollama models when cgroup RAM limits are verified. Defaults remain lightweight and no OpenAI API is configured.
+- Not yet delivered: independent web index, automatic provisioning of remote nodes, automated customer data cleanup, unrestricted model-controlled account actions or general self-modifying production code.
+- See [Step 56](STEP56_BOTS_SEARCH_LOCAL_AI.md).

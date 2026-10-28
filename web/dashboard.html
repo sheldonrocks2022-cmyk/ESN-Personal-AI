@@ -36,7 +36,7 @@ h2{font-size:19px;letter-spacing:-.015em;margin:0}.section-head{display:flex;ali
 @media(max-width:430px){nav{flex-wrap:wrap}.navlinks{order:2;flex-basis:100%;gap:3px}.navlinks a{padding:8px 10px}.stat-grid{gap:9px}.card{padding:16px}.quick{grid-template-columns:1fr}}
 </style></head>
 <body>
-<nav aria-label="Jarvis navigation"><a href="/dashboard" class="logo"><span class="logo-mark">J</span>ESN <b>JARVIS</b></a><div class="navlinks"><a href="/dashboard" aria-current="page">Overview</a><a href="/assistant">Assistant</a><a href="/tasks">Task Center</a><a href="/studio">Creative Studio</a><a href="/connections">Connections</a></div><span class="nav-signal">Owner workspace</span></nav>
+<nav aria-label="Jarvis navigation"><a href="/dashboard" class="logo"><span class="logo-mark">J</span>ESN <b>JARVIS</b></a><div class="navlinks"><a href="/dashboard" aria-current="page">Overview</a><a href="/assistant">Assistant</a><a href="/tasks">Task Center</a><a href="/studio">Creative Studio</a><a href="/bots">Managed Bots</a><a href="/search">Research</a><a href="/connections">Connections</a></div><span class="nav-signal">Owner workspace</span></nav>
 <main>
 <div class="hero"><div><div class="overline">Your private operations workspace</div><h1>Build bigger.<br><span class="gradient">Stay in control.</span></h1><p>One home for your ESN AI, infrastructure checks, creative work, and connected tools. Every live metric below comes from your own Jarvis server.</p></div><aside class="hero-info"><div class="overline">Jarvis intelligence</div><p><strong>Local-first. Owner-controlled.</strong></p><p class="tiny">Qwen3 through your local Ollama service. No OpenAI API connection is required for this dashboard.</p></aside></div>
 <div class="actions"><a class="btn btn-primary" href="/assistant">Talk to Jarvis</a><a class="btn" href="/tasks">View operations</a><a class="btn" href="/studio">Open Creative Studio</a><button class="btn" id="reload">Refresh status</button></div>
@@ -46,11 +46,12 @@ h2{font-size:19px;letter-spacing:-.015em;margin:0}.section-head{display:flex;ali
 <div class="card"><div class="stat-label"><span class="dot"></span> TASKS</div><div class="stat-value" id="completed">—</div><div class="stat-foot">Recently completed checks</div></div>
 <div class="card"><div class="stat-label"><span class="dot"></span> ACTIVE PLANS</div><div class="stat-value" id="plans-count">—</div><div class="stat-foot">Approved or awaiting approval</div></div>
 <div class="card"><div class="stat-label"><span class="dot"></span> TASK CAPACITY</div><div class="stat-value" id="queue">—</div><div class="stat-foot" id="queue-detail">50 queued slots, not 50 AI processes</div></div>
+<div class="card"><div class="stat-label"><span class="dot"></span> LOCAL AI PROFILE</div><div class="stat-value" id="ai-mode">—</div><div class="stat-foot" id="ai-model">No cloud AI required</div></div>
 </section>
 <div class="split">
 <section class="card"><div class="section-head"><h2>Autonomous operations</h2><a class="pill" href="/tasks">Open Task Center</a></div><div id="plans"><p>No saved plans to show.</p></div></section>
 <section class="card"><div class="section-head"><h2>Your workspace</h2><span class="pill">Private</span></div>
-<div class="quick"><a href="/assistant">AI Assistant<span>Local chat and owner-approved notes</span></a><a href="/tasks">Operations<span>Audits, schedules and disk reports</span></a><a href="/studio">Creative Studio<span>Real output jobs and edits</span></a><a href="/connections">Connections<span>Manage encrypted credentials</span></a></div>
+<div class="quick"><a href="/assistant">AI Assistant<span>Local chat and owner-approved notes</span></a><a href="/tasks">Operations<span>Audits, schedules and disk reports</span></a><a href="/studio">Creative Studio<span>Real output jobs and edits</span></a><a href="/connections">Connections<span>Manage encrypted credentials</span></a><a href="/bots">Managed Bots<span>Use your authorized bot identities</span></a><a href="/search">Research API<span>Web search under your own endpoint</span></a></div>
 <div style="margin-top:22px"><div class="overline">Safety boundaries</div><p class="tiny">Jarvis only checks nodes and accounts through connections you authorize. Production changes require separate approval; disk audits do not delete files. Your 8 GiB limit remains managed by systemd.</p></div>
 </section></div>
 <p id="notice" role="status" aria-live="polite"></p>
@@ -66,10 +67,13 @@ async function load(){
   getJSON('/api/operations/storage'),
   getJSON('/api/operations'),
   getJSON('/api/autonomous/plans'),
-  getJSON('/api/operations/capacity')
+  getJSON('/api/operations/capacity'),
+  getJSON('/api/operations/ai-profile')
  ]);
  const one=i=>data[i].status==='fulfilled'?data[i].value:null;
- const mem=one(0),disk=one(1),jobs=one(2),plans=one(3),capacity=one(4);
+ const mem=one(0),disk=one(1),jobs=one(2),plans=one(3),capacity=one(4),profile=one(5);
+ $('ai-mode').textContent=profile?profile.profile:'—';
+ $('ai-model').textContent=profile?profile.fast_model+(profile.quality_model_configured?' + optional quality model':''):'AI profile unavailable';
  $('queue').textContent=capacity?capacity.occupied_slots+'/'+capacity.queued_capacity:'—';
  $('queue-detail').textContent=capacity?'Max '+capacity.max_read_only_check_threads+' active check threads; memory guard '+(capacity.memory_pressure_pauses_new_checks?'paused':'ready'):'Queue data unavailable';
  if(mem&&mem.used_bytes!==null){$('ram').textContent=(mem.used_bytes/GiB).toFixed(2)+' GiB';$('ram-detail').textContent=mem.shared_cap_active?'8 GiB shared limit active':'Limit not verified';$('ram-bar').style.width=Math.min(100,mem.usage_percent||0)+'%'}else{$('ram').textContent='Unavailable'}
