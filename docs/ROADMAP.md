@@ -72,3 +72,7 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - New `/dashboard` live overview with mobile-friendly navigation and unified premium page styling. Existing Tasks, Connections, Studio and Assistant still use their existing server endpoints.
 - Additional integrations and production actions (Discord server templates, YouTube OAuth uploads, GitHub coding agent, Pterodactyl redesign) are **future scoped, approved capabilities**, not implemented or linked automatically.
 - See [Private Discord DMs and Dashboard](PRIVATE_DM_AND_DASHBOARD.md) for security boundaries and deployment tests.
+
+## Step 55 — owner-only DM command fallback, capacity, and research
+
+Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read-only Pterodactyl node/server inventory, optional Brave Search API using encrypted vault, and admission-controlled 50 combined **pending/running** read-only task slots with memory-pressure backoff. Does not mean 50 active AI models, official Discord bot impersonation, remote cleanup, or Pterodactyl server mutation. See [Step 55](STEP55_DM_WORKERS_RESEARCH.md).
