@@ -58,7 +58,8 @@ def run():
     @app_commands.describe(question='Your question for Jarvis')
     async def ask(interaction: discord.Interaction, question: str):
         owner = interaction.user.id == owner_id
-        guest = not owner and interaction.guild is None
+        guest = (not owner and interaction.guild is None
+                 and isinstance(interaction.channel, discord.DMChannel))
         if not owner and not guest:
             await interaction.response.send_message(dm_access.PRIVATE_REPLY, ephemeral=True)
             return
