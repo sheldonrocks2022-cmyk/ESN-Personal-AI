@@ -37,7 +37,10 @@ class FakeSystemd:
             return subprocess.CompletedProcess(args, 0 if value=="active" else 3, value+"\n", "")
         if operation in ("enable", "disable"):
             unit = remaining[-1]
-            self.units[unit]["enabled"] = "enabled" if operation=="enable" else "disabled"
+            if operation == "enable":
+                self.units[unit]["enabled"] = "enabled-runtime" if "--runtime" in remaining else "enabled"
+            else:
+                self.units[unit]["enabled"] = "disabled"
             if "--now" in remaining:
                 self.units[unit]["active"] = "inactive"
             return subprocess.CompletedProcess(args, 0, "", "")
@@ -91,6 +94,12 @@ class PowerControlTests(unittest.TestCase):
         self.assertFalse(power.STATE_FILE.exists())
         starts = [x for x in self.fake.calls if x[0] == "start"]
         self.assertEqual(starts, [("start",power.MODEL),("start",power.WEB),("start",power.DISCORD)])
+
+    def test_runtime_only_enablement_is_restored_as_runtime_only(self):
+        self.fake.units[power.MODEL]["enabled"] = "enabled-runtime"
+        power.off()
+        power.on()
+        self.assertIn(("enable", "--runtime", power.MODEL), self.fake.calls)
 
     def test_repeated_off_does_not_replace_boot_snapshot(self):
         power.off()
