@@ -42,19 +42,19 @@ class WorkerBudgetTests(unittest.TestCase):
         self.assertIsInstance(operations.enqueue("panel_health"), str)
 
     def test_autonomous_plan_and_ops_share_same_budget(self):
-        for i in range(47):
+        for i in range(48):
             operations.enqueue("panel_health")
         with self.assertRaisesRegex(ValueError, "queue is full"):
             autonomous.create("Check panel website and GitHub")
         plan_id = autonomous.create("Check panel and website")
         self.assertEqual(autonomous.get(plan_id)["total_steps"], 2)
         with operations.conn() as db:
-            self.assertEqual(worker_budget.occupied_slots(db), 49)
+            self.assertEqual(worker_budget.occupied_slots(db), 50)
         with self.assertRaises(ValueError):
             autonomous.create("Check panel and website")
         self.assertEqual(autonomous.cancel(plan_id), "cancelled")
         with operations.conn() as db:
-            self.assertEqual(worker_budget.occupied_slots(db), 47)
+            self.assertEqual(worker_budget.occupied_slots(db), 48)
 
     def test_memory_pressure_defers_new_work_without_deleting_queue(self):
         ident = operations.enqueue("panel_health")
