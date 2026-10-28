@@ -22,7 +22,7 @@ def help_text():
     return (
         "Jarvis owner DM commands:\n"
         "!jarvis help | status | disk | capacity | tasks | schedules\n"
-        "!jarvis ask <question> | search <query>\n"
+        "!jarvis ask <question> | !jarvis search <query>\n"
         "!jarvis panel nodes | panel servers (read-only)\n"
         "!jarvis check <task-kind>\n"
         "!jarvis remember <topic> | <note>  (use a vertical bar between topic and note)\n"
