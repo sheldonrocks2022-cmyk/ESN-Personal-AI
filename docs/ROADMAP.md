@@ -84,3 +84,10 @@ Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read
 - Delivered optional local AI profiles (`efficient`, `adaptive`, `quality`) using only pre-installed Ollama models when cgroup RAM limits are verified. Defaults remain lightweight and no OpenAI API is configured.
 - Not yet delivered: independent web index, automatic provisioning of remote nodes, automated customer data cleanup, unrestricted model-controlled account actions or general self-modifying production code.
 - See [Step 56](STEP56_BOTS_SEARCH_LOCAL_AI.md).
+
+## Step 57 — Root-only reversible Jarvis power toggle
+
+- Added separate `esnjarvis status/off/on` Termius command with root-controlled state, original boot-enable preservation, safe startup/stop ordering and concurrency lock; no Wings, customer servers, Pterodactyl, Docker or Nginx changes.
+- Ollama shutdown requires confirmed membership in the Jarvis resource slice; alternatively `off --keep-ollama` preserves shared model service.
+- **OFF frees only RAM/CPU currently consumed**, not the full 8 GiB cgroup maximum and not installed disk files. A 5 GiB storage allocation is not a disk upgrade and is separate from this power switch.
+- See [Step 57 deployment and rollback](STEP57_JARVIS_POWER.md). No VPS changes until the owner explicitly runs the opt-in installer/command.
