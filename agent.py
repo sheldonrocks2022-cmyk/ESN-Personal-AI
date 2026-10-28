@@ -93,6 +93,8 @@ def respond_to_tool_calls(message, enqueue=None):
             if not isinstance(args, dict) or not set(args).issubset({'kind', 'target'}):
                 raise ValueError('Unexpected task parameters')
             kind = args.get('kind')
+            if not isinstance(kind, str) or kind not in operations.TASK_KINDS:
+                raise ValueError('Unsupported task kind')
             # A small local model sometimes includes a redundant target for a
             # well-defined non-browser check. Accept ONLY the matching target.
             # Neither the task kind nor its destination can be user-supplied URLs.
