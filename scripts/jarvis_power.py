@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import customer_capacity
 
 DISCORD = "esn-jarvis-discord.service"
 WEB = "esn-jarvis.service"
@@ -161,6 +162,14 @@ def status():
     print("Jarvis power mode: " + ("OFF record saved" if current else "ON / no saved OFF record"))
     if current and MODEL not in current["units"]:
         print("Ollama was intentionally left running because --keep-ollama was selected.")
+    cap = customer_capacity.config()
+    if cap:
+        print("Customer-first mode: ENABLED, node %d, OFF boost %d MiB; checked separately with 'esnjarvis customers check'" %
+              (cap["node_id"], cap["extra_mib"]))
+        if current and "capacity" in current:
+            print("Customer-first OFF record: panel boost may be active; restarting Jarvis will safely restore baseline.")
+    else:
+        print("Customer-first mode: NOT enabled; OFF only releases actual Jarvis usage.")
     _reported_resources()
     print("Stopping Jarvis does not delete models, caches, databases or other files.")
 
@@ -177,9 +186,18 @@ def off(*, keep_ollama=False, dry_run=False):
     if current is None:
         previous = {unit: enabled(unit) for unit in units}
         current = {"version": VERSION, "units": list(units), "enabled": previous}
+        cap = customer_capacity.config()
+        if cap:
+            if keep_ollama:
+                raise RuntimeError("Customer-first capacity cannot be boosted with Ollama left running")
+            current["capacity"] = customer_capacity.off_preflight(cap)
     if dry_run:
         print("DRY RUN: would stop + disable: " + ", ".join(units))
         print("Would preserve boot-enable states and leave disk contents untouched.")
+        if "capacity" in current:
+            cap = current["capacity"]
+            print("Customer-first dry run: after shutdown would boost SAME local node %d from %d to %d MiB" %
+                  (cap["node_id"], cap["base_mib"], cap["target_mib"]))
         return
     if not STATE_FILE.exists():
         write_state(current)
@@ -189,6 +207,10 @@ def off(*, keep_ollama=False, dry_run=False):
     for unit in units:
         if active(unit) in ("active", "activating"):
             raise RuntimeError(unit + " is still active; inspect its dependencies before assuming OFF")
+    if "capacity" in current:
+        customer_capacity.apply_off(current["capacity"])
+        print("Customer-first Pterodactyl allocation boost VERIFIED for this local Wings node.")
+        print("WARNING: any new customer allocations beyond the original baseline will block 'esnjarvis on'.")
     print("Jarvis OFF. Disk files kept for a reversible restart.")
     print("SSH/Termius remains available; use 'esnjarvis on' to restore Jarvis.")
     _reported_resources()
@@ -207,6 +229,9 @@ def on(*, dry_run=False):
         print("DRY RUN: would restore and start: " +
               ", ".join(u for u in STARTUP_ORDER if u in units))
         return
+    if "capacity" in current:
+        customer_capacity.restore_on(current["capacity"])
+        print("Customer-first capacity returned to safe baseline; Jarvis may restart.")
     for unit in STARTUP_ORDER:
         if unit not in units:
             continue
@@ -231,7 +256,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Reversible ESN Jarvis on/off/status controls. Never touches customer hosting units."
     )
-    parser.add_argument("action", choices=("status", "off", "on"))
+    parser.add_argument("action", choices=("status", "off", "on", "customers"))
+    parser.add_argument("customer_action", nargs="?", choices=("check", "enable", "disable"))
+    parser.add_argument("--boost-mib", type=int, default=customer_capacity.DEFAULT_BOOST_MIB,
+                        help="opt-in customer RAM cap change, default 8192 MiB")
     parser.add_argument("--keep-ollama", action="store_true",
                         help="with off: leave potentially shared Ollama untouched")
     parser.add_argument("--dry-run", action="store_true",
@@ -239,6 +267,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.keep_ollama and args.action != "off":
         parser.error("--keep-ollama applies only to off")
+    if (args.action == "customers") != (args.customer_action is not None):
+        parser.error("'customers' requires check, enable or disable")
     try:
         if args.action == "status":
             status()
@@ -250,12 +280,24 @@ def main(argv=None):
                     fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     if args.action == "off":
                         off(keep_ollama=args.keep_ollama)
-                    else:
+                    elif args.action == "on":
                         on()
+                    elif args.customer_action == "check":
+                        customer_capacity.check(args.boost_mib)
+                    elif args.customer_action == "enable":
+                        if read_state() is not None:
+                            raise RuntimeError("Turn Jarvis ON before enabling customer-first mode")
+                        customer_capacity.enable(args.boost_mib)
+                    else:
+                        customer_capacity.disable(power_off_record_exists=read_state() is not None)
             elif args.action == "off":
                 off(keep_ollama=args.keep_ollama, dry_run=True)
-            else:
+            elif args.action == "on":
                 on(dry_run=True)
+            elif args.customer_action == "check":
+                customer_capacity.check(args.boost_mib)
+            else:
+                print("DRY RUN ONLY; customer-first configuration unchanged.")
     except (RuntimeError, OSError, BlockingIOError) as exc:
         print("ERROR: " + str(exc), file=sys.stderr)
         return 1
