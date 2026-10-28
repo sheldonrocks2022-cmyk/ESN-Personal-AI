@@ -57,3 +57,11 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - Owner-only Discord `/jarvis_auto`, `/jarvis_auto_approve`, `/jarvis_auto_status`, `/jarvis_auto_cancel`; Task Center includes preview, approval, cancellation, progress and verified per-step results.
 - One read-only step at a time; persistent retry-once and crash lease recovery, bounded plan length (five checks) and active plan count (eight); cooperative cancellation. No uncontrolled model-generated commands.
 - This is a guarded orchestration foundation, **not** unconstrained computer use or permission to alter production systems. Jarvis and Ollama stay in the existing shared 8 GiB slice.
+
+## Storage maintenance and advanced capability roadmap
+
+- **Implemented read-only:** local Jarvis VPS filesystem capacity audit, bounded aged Jarvis-owned temporary/cache estimates, owner-only Discord `/jarvis_disk`, Task Center display, and auditable `storage_audit` jobs. No cleanup or remote node access is implied.
+- **Next:** isolated, authenticated read-only agents on each Wings node; explicit node inventory and disk pressure monitoring. Never read customer server contents by default.
+- **Next:** dry-run maintenance proposals with exact file sets, ownership checks, backups, per-action owner approval, server-aware locks and recovery. No automatic deletion of Pterodactyl volumes/backups/archives or Docker data.
+- **Next:** least-privilege Github coding adapters: stage changes on branches, run CI, review diffs, require explicit approval before deployments or self-modification; benchmark and rollback with the 8 GiB cap.
+- **Next:** connector registry for supported services (OAuth/API permissions, vault encryption, scope and revocation), and separately staged Pterodactyl front-end designs after screenshots and version checks. Nothing connects to arbitrary services automatically.
