@@ -65,3 +65,10 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - **Next:** dry-run maintenance proposals with exact file sets, ownership checks, backups, per-action owner approval, server-aware locks and recovery. No automatic deletion of Pterodactyl volumes/backups/archives or Docker data.
 - **Next:** least-privilege Github coding adapters: stage changes on branches, run CI, review diffs, require explicit approval before deployments or self-modification; benchmark and rollback with the 8 GiB cap.
 - **Next:** connector registry for supported services (OAuth/API permissions, vault encryption, scope and revocation), and separately staged Pterodactyl front-end designs after screenshots and version checks. Nothing connects to arbitrary services automatically.
+
+## Private DM bridge and Command Center V2
+
+- New owner-only direct text messages to the ESN Jarvis bot and time-limited chat-only guest grants with expiration, strict message quotas, revocation, and owner-only slash commands. Unapproved DM senders get `This bot is private`; no guild text monitoring or self-bot behavior.
+- New `/dashboard` live overview with mobile-friendly navigation and unified premium page styling. Existing Tasks, Connections, Studio and Assistant still use their existing server endpoints.
+- Additional integrations and production actions (Discord server templates, YouTube OAuth uploads, GitHub coding agent, Pterodactyl redesign) are **future scoped, approved capabilities**, not implemented or linked automatically.
+- See [Private Discord DMs and Dashboard](PRIVATE_DM_AND_DASHBOARD.md) for security boundaries and deployment tests.
