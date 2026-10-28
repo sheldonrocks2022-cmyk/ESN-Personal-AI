@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import connections
@@ -30,7 +31,7 @@ PRIVATE_WORDS = re.compile(
     r"one[ _-]?time[ _-]?password|otp)\b"
 )
 TOKEN_PATTERN = re.compile(r"(?i)(?:sk-[a-z0-9_-]{12,}|ptla_[a-z0-9_-]{10,}|"
-                           r"ghp_[a-z0-9_-]{10,}|mfa\\.[a-z0-9_-]{10,})")
+                           r"ghp_[a-z0-9_-]{10,}|mfa\.[a-z0-9_-]{10,})")
 
 
 def _normalize(topic):
@@ -50,12 +51,20 @@ def _validate_note(note):
     return note.strip()
 
 
+@contextmanager
 def _db(path):
     db = sqlite3.connect(path, timeout=20)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA busy_timeout=20000")
-    db.execute(SCHEMA)
-    return db
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA busy_timeout=20000")
+        db.execute(SCHEMA)
+        yield db
+        db.commit()
+    except BaseException:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def _digest(topic):
