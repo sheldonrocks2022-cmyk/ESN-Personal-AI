@@ -16,7 +16,7 @@ TOOLS = [{
     'type': 'function',
     'function': {
         'name': 'queue_esn_check',
-        'description': 'Request a real read-only ESN infrastructure or public website check. Returns a job ID; do not claim the check completed.',
+        'description': 'Queue an approved read-only check and return a real job ID. For a hosting panel health check use kind panel_health WITHOUT target. Only browser_scan needs target: panel or website. Never claim a queued job finished.',
         'parameters': {
             'type': 'object',
             'properties': {
@@ -38,6 +38,31 @@ def sanitize_message(value):
     if re.search(r'(?i)(?:sk-[A-Za-z0-9_-]{12,}|ptla_[A-Za-z0-9_-]{10,}|mfa\.[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9_-]{10,})', value):
         raise ValueError('Message appears to contain an API token; save credentials in Connections, not chat')
     return value
+
+
+def queue_explicit_panel_job(message, enqueue=None):
+    """Reliably route an explicit panel-health *job* request without model ambiguity.
+
+    This narrowly recognizes intentional read-only checks. Questions about the
+    panel, requests to edit it, and requests involving multiple services still
+    go through the normal AI path. All actual work uses operations.enqueue.
+    """
+    if not isinstance(message, str):
+        return None
+    lower = message.lower()
+    if not re.search(r'\\b(?:panel|pterodactyl)\\b', lower):
+        return None
+    if not re.search(r'\\b(?:job|task|health.check)\\b', lower):
+        return None
+    if not re.search(r'\\b(?:check|queue|create|run|start)\\b', lower):
+        return None
+    # Do not silently drop a request for additional checks.
+    if re.search(r'\\b(?:nodes?|servers?|website|github|browser)\\b', lower):
+        return None
+    if enqueue is None:
+        enqueue = operations.enqueue
+    ident = enqueue('panel_health', {})
+    return f'Queued **panel_health** (job ID \`{ident}\`). Check the Task Center for real results; this task is not finished yet.'
 
 
 def respond_to_tool_calls(message, enqueue=None):
@@ -63,13 +88,24 @@ def respond_to_tool_calls(message, enqueue=None):
             replies.append('Rejected an unsupported action; only approved read-only tasks are permitted.')
             continue
         try:
-            args = json.loads(fn.get('arguments') or '{}')
+            raw = fn.get('arguments') or '{}'
+            args = raw if isinstance(raw, dict) else json.loads(raw)
             if not isinstance(args, dict) or not set(args).issubset({'kind', 'target'}):
                 raise ValueError('Unexpected task parameters')
             kind = args.get('kind')
-            options = {'target': args['target']} if kind == 'browser_scan' and 'target' in args else {}
-            if 'target' in args and kind != 'browser_scan':
-                raise ValueError('Unexpected browser target')
+            # A small local model sometimes includes a redundant target for a
+            # well-defined non-browser check. Accept ONLY the matching target.
+            # Neither the task kind nor its destination can be user-supplied URLs.
+            target = args.get('target')
+            if kind == 'browser_scan':
+                options = {'target': target}
+            elif target is not None:
+                expected_target = {'panel_health': 'panel', 'esn_website_health': 'website'}.get(kind)
+                if expected_target is None or target != expected_target:
+                    raise ValueError('Unexpected target for this check')
+                options = {}
+            else:
+                options = {}
             job_id = enqueue(kind, options)
             replies.append(f'Queued **{kind}** (job ID `{job_id}`). Check the Task Center for real results; this task is not finished yet.')
         except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
