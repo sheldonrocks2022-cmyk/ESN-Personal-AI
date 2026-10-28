@@ -13,11 +13,11 @@ class BudgetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             files = budget.manifest(Path(td))
             self.assertEqual(len(files), 4)
-            self.assertEqual({k.name for k in files}, {"esn-jarvis.slice", "90-esn-budget.conf"})
+            self.assertEqual({k.name for k in files}, {"esnjarvis.slice", "90-esn-budget.conf"})
             self.assertTrue(all("wings" not in str(p) and "nginx" not in str(p) for p in files))
-            self.assertEqual(sum("Slice=esn-jarvis.slice" in v for v in files.values()), 3)
-            self.assertIn("MemoryMax=8G", files[Path(td)/"esn-jarvis.slice"])
-            self.assertIn("MemoryHigh=7G", files[Path(td)/"esn-jarvis.slice"])
+            self.assertEqual(sum("Slice=esnjarvis.slice" in v for v in files.values()), 3)
+            self.assertIn("MemoryMax=8G", files[Path(td)/"esnjarvis.slice"])
+            self.assertIn("MemoryHigh=7G", files[Path(td)/"esnjarvis.slice"])
 
     def test_conflicting_existing_unit_is_preserved(self):
         with tempfile.TemporaryDirectory() as td:
