@@ -91,3 +91,10 @@ Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read
 - Ollama shutdown requires confirmed membership in the Jarvis resource slice; alternatively `off --keep-ollama` preserves shared model service.
 - **OFF frees only RAM/CPU currently consumed**, not the full 8 GiB cgroup maximum and not installed disk files. A 5 GiB storage allocation is not a disk upgrade and is separate from this power switch.
 - See [Step 57 deployment and rollback](STEP57_JARVIS_POWER.md). No VPS changes until the owner explicitly runs the opt-in installer/command.
+
+## Step 58: verified customer-first Pterodactyl RAM scheduler policy
+
+- Optional owner-enabled customer capacity mode checks local Wings UUID matching the exact Pterodactyl node and verifies memory/overallocation/physical host capacity before a bounded node.memory boost after Jarvis OFF.
+- Restores the original scheduler cap BEFORE Jarvis ON; refuses restart when customers allocated the extra capacity, actual host RAM is insufficient, or the API cannot verify safe restoration. Does not alter individual servers or customer processes.
+- If this VPS is not a Wings node, or the baseline already uses too much host RAM, the requested full 8192 MiB cannot be granted safely. No cross-node RAM transfer is possible.
+- See [Step 58 reservation checks and activation](STEP58_CUSTOMER_CAPACITY.md).
