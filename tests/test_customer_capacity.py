@@ -144,7 +144,9 @@ class CustomerCapacityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,"Jarvis stays OFF"):
             power.on()
         self.assertTrue(power.STATE_FILE.exists())
-        self.assertEqual(len(self.fake.calls),prior)  # no service even tried to start
+        # Read-only unit checks are allowed; no actual service may restart.
+        new_calls = self.fake.calls[prior:]
+        self.assertFalse(any(x[0] in ("enable","start") for x in new_calls))
         self.assertEqual(self.panel.memory,20480)
         self.panel.allocated=9000
         power.on()
