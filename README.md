@@ -58,3 +58,8 @@ The owner-only **/tasks** interface uses the existing PIN + owner-token session.
 Creative Studio rendering/logo operations are queued persistently and recover pending tasks after service restarts; intensive media rendering still requires an isolated media worker. Nothing here changes customer servers, Stripe, Discord administration, DNS, or production configuration. Read [deployment guide](docs/DEPLOY_V04.md) and [the task implementation](operations.py). Do not deploy this feature branch without reviewing the configuration and verifying HTTPS.
 
 This is still an incremental prototype; unrestricted desktop agents, authenticated browsing, official passkey management, advanced CapCut/After Effects control, and broad write-permission actions are **not built**.
+
+
+## v0.5: PIN-gated assistant with verified tasks
+
+The private `/assistant` page integrates an optional model-backed chat with the v0.4 read-only Task Center. It can request a **real queued check**, return a real job ID, and never claim completion before the job finishes. Every model tool call is validated against a strict allowlist. It cannot run arbitrary code, access vault secrets, alter DNS, charge customers, or bypass human verification. The dashboard shares the existing PIN + independent owner-token access session. See [Chat-to-tools documentation](docs/CHAT_TOOLS.md).
