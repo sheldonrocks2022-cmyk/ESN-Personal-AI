@@ -306,6 +306,10 @@ def handle(handler):
             import maintenance
             handler.send_json(200, maintenance.report())
             return True
+        if path == '/api/operations/ai-profile':
+            import local_model
+            handler.send_json(200, local_model.profile_status())
+            return True
     if handler.command == 'POST':
         if not _csrf(handler):
             handler.send_json(403, {'error': 'Request rejected'}); return True
