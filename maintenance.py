@@ -33,6 +33,17 @@ def cache_summary(base=CACHE_BASE, current_time=None):
     are returned to the model or dashboard. Does not traverse mount boundaries.
     """
     root = Path(base)
+    # Refuse indirection via a symlinked owner directory.
+    if root.is_symlink():
+        return {
+            "status": "refused_symlink_root",
+            "files_checked": 0,
+            "total_regular_file_bytes": 0,
+            "older_than_7_days_file_count": 0,
+            "older_than_7_days_bytes": 0,
+            "truncated": True,
+            "missing_cache_dirs": [],
+        }
     stamp = time.time() if current_time is None else current_time
     deadline = time.monotonic() + MAX_SCAN_SECONDS
     data = {
