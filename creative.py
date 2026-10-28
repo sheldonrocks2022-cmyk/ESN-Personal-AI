@@ -7,6 +7,7 @@ outputs stay beneath the media root. Never execute untrusted scripts or shell.
 from __future__ import annotations
 
 import html
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -33,6 +34,8 @@ SIZES = {"short": (720, 1280), "short-hd": (1080, 1920), "landscape": (1920, 108
 IDENT = re.compile(r"^[a-zA-Z0-9._-]{1,100}$")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 _RENDER_LIMIT = threading.BoundedSemaphore(1)
+_CREATIVE_STOP = threading.Event()
+_CREATIVE_WORKER = None
 
 
 def workspace() -> Path:
@@ -247,37 +250,84 @@ def asset_list() -> list[dict]:
     return sorted(listing, key=lambda a: a["name"])[:100]
 
 
+@contextmanager
 def db():
     connection = sqlite3.connect(workspace() / "studio.sqlite3", timeout=20)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute("CREATE TABLE IF NOT EXISTS studio_jobs(id TEXT PRIMARY KEY,kind TEXT,status TEXT,created_at TEXT,finished_at TEXT,result_json TEXT,error TEXT)")
+    connection.execute("CREATE TABLE IF NOT EXISTS studio_jobs(id TEXT PRIMARY KEY,kind TEXT,status TEXT,created_at TEXT,finished_at TEXT,result_json TEXT,error TEXT,spec_json TEXT)")
+    columns = {r[1] for r in connection.execute('PRAGMA table_info(studio_jobs)')}
+    if 'spec_json' not in columns:
+        connection.execute('ALTER TABLE studio_jobs ADD COLUMN spec_json TEXT')
     connection.commit()
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def enqueue(kind: str, spec: dict) -> str:
     if kind not in ("render", "logo"):
         raise ValueError("Unknown creative operation")
-    ident = secrets.token_hex(12)
+    if not isinstance(spec, dict):
+        raise ValueError("Invalid creative input")
     with db() as con:
-        con.execute("INSERT INTO studio_jobs(id,kind,status,created_at) VALUES(?,?,?,?)", (ident, kind, "queued", datetime.now(timezone.utc).isoformat()))
-    # Do not store user-provided copy/prompt in databases or external systems.
-    threading.Thread(target=_execute, args=(ident, kind, spec), daemon=True).start()
+        queued = con.execute("SELECT count(*) FROM studio_jobs WHERE status IN ('running','queued')").fetchone()[0]
+        if queued >= 20:
+            raise ValueError('Creative queue is full')
+        ident = secrets.token_hex(12)
+        con.execute("INSERT INTO studio_jobs(id,kind,status,created_at,spec_json) VALUES(?,?,?,?,?)", (ident, kind, "queued", datetime.now(timezone.utc).isoformat(), json.dumps(spec)))
     return ident
 
 
 def _execute(ident: str, kind: str, spec: dict):
-    with db() as con:
-        con.execute("UPDATE studio_jobs SET status='running' WHERE id=?", (ident,))
     try:
         output = render_video(spec) if kind == "render" else logo_design(spec)
     except Exception as exc:
+        # Avoid exposing user-supplied file names, metadata, and secrets in jobs UI.
         with db() as con:
-            con.execute("UPDATE studio_jobs SET status='failed',finished_at=?,error=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), str(exc)[:150], ident))
+            con.execute("UPDATE studio_jobs SET status='failed',finished_at=?,error=?,spec_json=NULL WHERE id=?", (datetime.now(timezone.utc).isoformat(), type(exc).__name__ + ': processing failed', ident))
     else:
         with db() as con:
-            con.execute("UPDATE studio_jobs SET status='completed',finished_at=?,result_json=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), json.dumps(output), ident))
+            con.execute("UPDATE studio_jobs SET status='completed',finished_at=?,result_json=?,spec_json=NULL WHERE id=?", (datetime.now(timezone.utc).isoformat(), json.dumps(output), ident))
+
+
+def creative_tick():
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row = con.execute("SELECT id,kind,spec_json FROM studio_jobs WHERE status='queued' ORDER BY created_at LIMIT 1").fetchone()
+        if row:
+            con.execute("UPDATE studio_jobs SET status='running' WHERE id=?", (row['id'],))
+    if not row:
+        return False
+    _execute(row['id'], row['kind'], json.loads(row['spec_json']))
+    return True
+
+
+def start_worker():
+    global _CREATIVE_WORKER
+    if not ENABLED:
+        return
+    with db() as con:
+        # A crash could interrupt ffmpeg. The next run retries from its stored plan.
+        con.execute("UPDATE studio_jobs SET status='queued' WHERE status='running' AND spec_json IS NOT NULL")
+        con.execute("UPDATE studio_jobs SET status='interrupted',finished_at=? WHERE status='running' AND spec_json IS NULL", (datetime.now(timezone.utc).isoformat(),))
+    if _CREATIVE_WORKER and _CREATIVE_WORKER.is_alive():
+        return
+    _CREATIVE_STOP.clear()
+    def loop():
+        while not _CREATIVE_STOP.is_set():
+            try:
+                active = creative_tick()
+            except Exception:
+                active = False
+            _CREATIVE_STOP.wait(0.1 if active else 2.0)
+    _CREATIVE_WORKER = threading.Thread(target=loop, name='ESN-Media-Worker', daemon=True)
+    _CREATIVE_WORKER.start()
 
 
 def get_jobs() -> list[dict]:

@@ -24,3 +24,13 @@ Milestones are goals, not completed features. Each requires testing and evidence
 - **Human checks:** pause for legitimate CAPTCHA/MFA/identity verification and hand the browser session back to the owner. Do not bypass anti-bot or identity protections.
 - **Safety:** keep media rendering separate from Pterodactyl production nodes; no automatic posting or paid API use without permission.
 - Detailed specification and acceptance tests: [Cinematic Media Studio and Authorized Authentication](MEDIA_AND_AUTH.md).
+
+
+## v0.4 progress: real task center
+
+- Implemented durable, bounded read-only operations in `operations.py`: verified results, recurring checks, failure auditing, browser inspector restricted to public ESN domains, and queued-job cancellation.
+- Implemented mobile `/tasks` dashboard using the v0.2 PIN + owner-token authenticated session.
+- Media queue persists real edit/logo work plans across service restarts (one renderer per isolated worker).
+- New automated tests validate persistence, cancellation, scheduling, retry limits and restrictions; local suite passed 22 tests.
+- Available for review on a development branch; **not deployed**. See [deploy checklist](DEPLOY_V04.md).
+- Remaining: secure owner-approved write actions, desktop/After Effects/CapCut control adapters, multi-agent orchestration, more advanced cinematic effects, WebAuthn passkeys, human-auth handoffs, and integrated business workflows.

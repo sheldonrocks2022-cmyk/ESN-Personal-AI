@@ -49,3 +49,12 @@ This revision adds a **real local video editor** and vector logo creator, withou
 - Media editing needs appropriate rights for clips and soundtracks. All media is stored outside Git. Owner approval required for uploading/publishing content.
 
 **Deployment/security limits:** this is a controlled prototype, not a production-ready public video hosting service. The one-process thread queue isn't restart-durable; jobs interrupted during a restart must be resubmitted. Put a strong HTTPS/authenticating gateway in front of it, restrict studio users to the owner, set worker CPU/disk limits, and monitor output disk growth. Rendering is disabled by default. Do not host on production ESN nodes.
+
+
+## v0.4: Persistent Task Center
+
+The owner-only **/tasks** interface uses the existing PIN + owner-token session. It provides a durable SQLite job queue, real results, safe read-only checks of ESN Website, public GitHub repository, Pterodactyl panel/nodes/servers, recurring schedules (15 minutes to daily), bounded retries, cancellation of queued jobs, and a public-page browser inspector (optional Playwright). Jobs and schedules remain recorded after restarts.
+
+Creative Studio rendering/logo operations are queued persistently and recover pending tasks after service restarts; intensive media rendering still requires an isolated media worker. Nothing here changes customer servers, Stripe, Discord administration, DNS, or production configuration. Read [deployment guide](docs/DEPLOY_V04.md) and [the task implementation](operations.py). Do not deploy this feature branch without reviewing the configuration and verifying HTTPS.
+
+This is still an incremental prototype; unrestricted desktop agents, authenticated browsing, official passkey management, advanced CapCut/After Effects control, and broad write-permission actions are **not built**.
