@@ -188,9 +188,21 @@ def _csrf(handler):
 
 def handle(handler):
     path = urlsplit(handler.path).path
-    if path not in ("/api/bots", "/api/bots/identity",
+    if path not in ("/bots", "/api/bots", "/api/bots/identity",
                     "/api/bots/channel", "/api/bots/send"):
         return False
+    if path == "/bots" and handler.command == "GET":
+        token = connections.token_from_cookie(handler.headers.get("Cookie", ""))
+        if not connections.session_valid(token):
+            handler.send_response(302)
+            handler.send_header("Location", "/connections")
+            handler.send_header("Content-Length", "0")
+            handler.send_header("Cache-Control", "no-store")
+            handler.end_headers()
+            return True
+        from pathlib import Path
+        handler.send_html((Path(__file__).with_name("web") / "bots.html").read_bytes())
+        return True
     if not _auth(handler):
         handler.send_json(401, {"error": "Sign in to Jarvis first"})
         return True
