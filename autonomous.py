@@ -25,6 +25,7 @@ SAFE_KINDS = (
     "github_repo_health",
     "nodes_snapshot",
     "servers_snapshot",
+    "storage_audit",
 )
 MAX_STEPS = 5
 MAX_ATTEMPTS = 2
@@ -67,6 +68,7 @@ TARGET_PATTERNS = (
     ("github_repo_health", re.compile(r"\b(github|repository|repo)\b", re.I)),
     ("nodes_snapshot", re.compile(r"\b(nodes?)\b", re.I)),
     ("servers_snapshot", re.compile(r"\b(servers?|customer\s+instances?)\b", re.I)),
+    ("storage_audit", re.compile(r"\b(disk|storage|free space|disk space|drive space|junk|cache)\b", re.I)),
 )
 
 
@@ -114,8 +116,15 @@ def steps_for_goal(goal):
     selected = [kind for kind, regex in TARGET_PATTERNS if regex.search(goal)]
     if not selected and re.search(r"\b(esn|hosting|infrastructure|everything|all)\b", goal, re.I):
         selected = ["panel_health", "esn_website_health", "github_repo_health"]
+    if "storage_audit" in selected:
+        # Do not claim an audit of other machines. Remote nodes require approved agents.
+        if re.search(r"\b(all|every|each|remote|four|4)\b.{0,30}\bnodes?\b|\bnodes?\b.{0,30}\b(all|every|each|remote|four|4)\b", goal, re.I):
+            raise ValueError("Remote node disk reports require separate approved node agents")
+        # 'node disk space' means local storage, NOT a Pterodactyl node-metadata API call.
+        if "nodes_snapshot" in selected and not re.search(r"\b(node metadata|node configuration|node status)\b", goal, re.I):
+            selected.remove("nodes_snapshot")
     if not selected:
-        raise ValueError("Name an ESN target: panel, website, GitHub, nodes or servers")
+        raise ValueError("Name an ESN target: panel, website, GitHub, nodes, servers or disk")
     if len(selected) > MAX_STEPS:
         raise ValueError("Too many steps in the requested audit")
     # Revalidate against the independent executor's allowlist.
