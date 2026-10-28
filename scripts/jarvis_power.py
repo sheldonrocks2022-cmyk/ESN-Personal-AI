@@ -211,8 +211,10 @@ def on(*, dry_run=False):
         if unit not in units:
             continue
         original = current["enabled"][unit]
-        if original in ("enabled", "enabled-runtime"):
+        if original == "enabled":
             must("enable", unit)
+        elif original == "enabled-runtime":
+            must("enable", "--runtime", unit)
         # Static/disabled/indirect units stay non-enabled, preserving original policy.
         must("start", unit)
         print("Started: " + unit)
