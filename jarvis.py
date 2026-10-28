@@ -137,9 +137,9 @@ def chat(message):
         return direct_reply
     system = "You are ESN Jarvis. You can request ONLY the declared read-only check tool. If a user asks to inspect ESN hosting, use the tool to enqueue the task and mention its job ID, but never claim it has completed. No payment, customer server changes, DNS writes, logins, CAPTCHA bypasses, or arbitrary shell commands. Do not request credentials in chat; direct them to the private Connections vault."
     # Owner explicitly controls long-term memory; never auto-save conversation details.
-    references = memory_store.model_context(DB_PATH)
+    references = memory_store.model_context(DB_PATH) if AI_PROVIDER == "ollama" else ""
     if references:
-        system += "\\n\\n" + references
+        system += "\n\n" + references
     payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": system}, *context, {"role": "user", "content": message}], "tools": agent.TOOLS, "tool_choice": "auto", "max_tokens": 700}
     if AI_PROVIDER == "ollama":
         model_message = local_model.chat(payload["messages"], agent.TOOLS)
