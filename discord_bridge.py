@@ -13,6 +13,10 @@ import memory_store
 import autonomous
 import maintenance
 import dm_access
+import dm_commands
+import research
+import worker_budget
+import operations
 
 
 def run():
@@ -29,7 +33,17 @@ def run():
     intents.dm_messages = True
     # Bot DM content does not require privileged guild message-content intent.
     client = discord.Client(intents=intents)
-    tree = app_commands.CommandTree(client)
+    # Register globals for both shared guilds and actual DMs with the bot.
+    # This is distinct from group DMs/user-install commands.
+    tree = app_commands.CommandTree(
+        client,
+        allowed_contexts=app_commands.AppCommandContext(
+            guild=True, dm_channel=True, private_channel=False
+        ),
+        allowed_installs=app_commands.AppInstallationType(
+            guild=True, user=False
+        ),
+    )
     blocked_notice = {}
     dm_semaphore = asyncio.Semaphore(1)
 
@@ -257,6 +271,66 @@ def run():
         ]
         await interaction.followup.send('\n'.join(lines)[:1700], ephemeral=True)
 
+    @tree.command(name='jarvis_search', description='Owner-only web search (optional Brave Search connection)')
+    @app_commands.describe(query='Web search terms, up to 240 characters')
+    async def search_web(interaction: discord.Interaction, query: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            data = await asyncio.to_thread(research.search, query)
+            await interaction.followup.send(
+                research.format_results(data), ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none()
+            )
+        except (RuntimeError, ValueError):
+            await interaction.followup.send(
+                'Web search unavailable. Configure your Brave Search API key through the private Connections vault.',
+                ephemeral=True,
+            )
+
+    @tree.command(name='jarvis_capacity', description='View 50 task slots and current CPU/RAM safety status')
+    async def capacity(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        data = await asyncio.to_thread(capacity_snapshot)
+        await interaction.followup.send(
+            f'**Jarvis lightweight queue: {data["occupied_slots"]}/{data["queued_capacity"]}** '
+            f'(available {data["available_slots"]}). '
+            f'Max {data["max_read_only_check_threads"]} check threads; '
+            f'8 GiB limit verified: {data["memory_slice_limit_active"]}; '
+            f'memory throttling: {data["memory_pressure_pauses_new_checks"]}. '
+            '50 means queued jobs, NOT 50 simultaneous models.',
+            ephemeral=True,
+        )
+
+    def capacity_snapshot():
+        with operations.conn() as db:
+            return worker_budget.snapshot(db)
+
+    @tree.command(name='jarvis_panel_nodes', description='Owner: read-only view of configured Pterodactyl nodes')
+    async def panel_nodes(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(jarvis.run_panel_job, 'nodes_snapshot')
+            entries = result.get('items', [])[:12]
+            rows = [str(x.get('id','?')) + ' · ' + str(x.get('name','unnamed'))[:70] for x in entries]
+            await interaction.followup.send('**ESN nodes (first API page)**\n' + ('\n'.join(rows) or 'No nodes.'), ephemeral=True)
+        except Exception:
+            await interaction.followup.send('Panel API not connected or nodes unavailable.', ephemeral=True)
+
+    @tree.command(name='jarvis_panel_servers', description='Owner: read-only view of configured Pterodactyl servers')
+    async def panel_servers(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(jarvis.run_panel_job, 'servers_snapshot')
+            entries = result.get('items', [])[:12]
+            rows = [str(x.get('id','?')) + ' · ' + str(x.get('name','unnamed'))[:70] for x in entries]
+            await interaction.followup.send('**ESN servers (first API page)**\n' + ('\n'.join(rows) or 'No servers.'), ephemeral=True)
+        except Exception:
+            await interaction.followup.send('Panel API not connected or servers unavailable.', ephemeral=True)
+
     @client.event
     async def on_message(message: discord.Message):
         # Deliberately ignore ALL guild text; bot DMs only.
@@ -288,7 +362,10 @@ def run():
                 await dm_text(message, 'Please send a question under 1,300 characters.')
                 return
             async with message.channel.typing():
-                reply = await asyncio.to_thread(jarvis.chat if owner else dm_access.guest_chat, body)
+                if owner and dm_commands.is_command(body):
+                    reply = await asyncio.to_thread(dm_commands.handle, body, owner_id=owner_id)
+                else:
+                    reply = await asyncio.to_thread(jarvis.chat if owner else dm_access.guest_chat, body)
             await dm_text(message, reply)
         except Exception:
             await dm_text(message, 'Jarvis is temporarily unavailable. Please try again later.')
