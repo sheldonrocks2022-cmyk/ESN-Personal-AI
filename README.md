@@ -69,3 +69,7 @@ The private `/assistant` page integrates an optional model-backed chat with the 
 Jarvis supports `ESN_AI_PROVIDER=ollama` for local-only model inference at `127.0.0.1:11434`; website `/assistant` and Discord `/jarvis_ask` use the same `jarvis.chat` function and its restricted tool allowlist. Default remains `openai` until explicitly switched. Set `OLLAMA_MODEL=qwen3:1.7b` and download that model using Ollama. No OpenAI API key is required in local mode. The server does not install Ollama automatically.
 
 **Shared Wings host warning:** This machine also serves customer workloads. Limit Ollama with a dedicated non-root systemd service (`CPUQuota`, `MemoryMax`, `TasksMax`), no public Ollama port, one inference at a time, short context, and idle model eviction. Start with the 1.7B 4-bit model, not 7B+, then measure customer latency. This adapter is code-only until deployed, running, and integration-tested; a live model is not currently verified.
+
+## Optional 8 GiB shared Jarvis budget
+
+To place Ollama, Jarvis web and Jarvis Discord under one real cgroup RAM ceiling (without touching Wings), see [8 GiB systemd budget setup](docs/RESOURCE_BUDGET_8GB.md). A safe preview script is included; no host configuration is changed by GitHub updates alone. The owner-authenticated Task Center shows verified slice usage after activation.
