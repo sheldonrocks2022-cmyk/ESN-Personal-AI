@@ -35,27 +35,17 @@ To chat, configure `OPENAI_API_KEY` and POST `{"message":"Hi Jarvis"}` to `/api/
 
 **Security:** This is an owner-only prototype, not a hardened public service. SQLite history is stored unencrypted on disk; encrypt the volume and restrict filesystem permissions. Production requires TLS termination, rate limiting, monitoring, backups and more exhaustive verification. Never run AI-generated instructions directly on production infrastructure without explicit approval.
 
-## v0.2 add-on: PIN-gated Connections dashboard and Discord bridge
+## v0.3 Creative Studio foundation (opt-in)
 
-- Mobile Connections interface at `/connections`; requires a six-digit PIN **and** a separate randomly generated owner token.
-- Encrypted credential vault (`cryptography.Fernet`) for website logins and approved API tokens. Secrets cannot be retrieved through the dashboard API or sent to the language model.
-- HttpOnly session cookie, 30-minute expiry, CSRF/origin protection, and failed-login throttling.
-- Save, list and remove integrations; verify Discord bot token identity against the Discord API.
-- Optional owner-only Discord slash commands (`/jarvis_status`, `/jarvis_ask`); bot access requires owner-provided Discord bot credentials and user ID.
-- Added automated tests. No production server changes made.
+This revision adds a **real local video editor** and vector logo creator, without requiring an AI image/video generator. These are rule-based creative tools under the owner's control.
 
-**Setup on the isolated Jarvis VPS:**
+- Install **FFmpeg + FFprobe** on a separate creative worker. Set `ESN_CREATIVE_ENABLED=1` and an isolated `ESN_MEDIA_ROOT` path in the process environment (default disabled). Ensure the service account owns the directory and doesn't have access to Pterodactyl/Wings or customer files.
+- For optional PNG logo export, install `cairosvg>=2.8,<3` and its system Cairo libraries. SVG generation works without CairoSVG.
+- Place authorized `.mp4`, `.mov`, `.mkv`, `.webm`, `.m4v`, and permitted audio files in `$ESN_MEDIA_ROOT/inputs` via SFTP. Filename must contain letters/digits/dots/dashes/underscores only. No remote URLs are accepted by the render API.
+- Visit `https://jarvis.esnoffical.com/connections` and sign in with your PIN + owner token. Open `/studio` on the same origin to render edits and logos, check real job status, and download artifacts. You may also call `/api/studio/assets`, `/api/studio/render`, `/api/studio/logo`, `/api/studio/jobs` with the existing owner Bearer token.
+- The first renderer supports clip trims, aspect-ratio crops, titles, several color looks, separate provided soundtrack, up to 8 clips / 60 seconds, 24/30/60 FPS, and export sizes up to 1080×1920 or 1920×1080. It produces real H.264 MP4 files in `$ESN_MEDIA_ROOT/exports` (not AI-generated). Original clip audio is not retained in this first version unless separately provided as soundtrack.
+- A handoff ZIP contains an editable shot-list JSON and an **After Effects ExtendScript JSX** project-assembly script. Run the JSX in a licensed After Effects installation on Windows/macOS after copying your original source files into an `inputs` folder beside the JSX file. CapCut has no generally supported public automation API: manually import the media using the shot list. No deceptive claim of CapCut headless rendering.
+- Logo generator creates real editable SVG, optionally PNG. Three symbol styles and configurable color scheme. It is intentionally simple: advanced vector design, typography, compositing and live desktop integration are later steps.
+- Media editing needs appropriate rights for clips and soundtracks. All media is stored outside Git. Owner approval required for uploading/publishing content.
 
-```bash
-python3 -m pip install -r requirements.txt
-python3 -m connections generate-key   # store result privately as ESN_VAULT_KEY
-python3 -m connections hash-pin       # enter PIN privately; store result as ESN_DASHBOARD_PIN_HASH
-python3 -m unittest discover -s tests -v
-python3 jarvis.py
-```
-
-The six-digit PIN given in chat is **not hardcoded**. Configure it via the interactive prompt above, and consider rotating it because chat content is not a private password manager. You must configure `ESN_OWNER_TOKEN` separately. Store the secrets in a protected systemd `EnvironmentFile` or other secret manager; **never commit real values to GitHub**. Back up the vault key securely because losing it makes credentials unrecoverable.
-
-To use the optional Discord bot bridge, save a bot token as type `discord_bot` through the dashboard, then set `DISCORD_CONNECTION_ID` (the saved connection's ID), `DISCORD_OWNER_USER_ID`, and optionally `DISCORD_GUILD_ID` in the process environment. Install `discord.py` with `python3 -m pip install 'discord.py>=2.5,<3'`, then run `python3 discord_bridge.py` as a separate restricted service. You still must create/authorize the Discord application yourself in its Developer Portal. Never paste bot credentials into chat.
-
-Use **HTTPS behind Nginx** with `ESN_PUBLIC_ORIGIN=https://jarvis.esnoffical.com`, `ESN_BIND=127.0.0.1`, and `ESN_COOKIE_SECURE=1`. No DNS or production deployment has been performed yet. See [Spaceship DNS & deployment](docs/DNS_AND_DEPLOY.md). The browser automation feature that could actually use stored website credentials is a later milestone.
+**Deployment/security limits:** this is a controlled prototype, not a production-ready public video hosting service. The one-process thread queue isn't restart-durable; jobs interrupted during a restart must be resubmitted. Put a strong HTTPS/authenticating gateway in front of it, restrict studio users to the owner, set worker CPU/disk limits, and monitor output disk growth. Rendering is disabled by default. Do not host on production ESN nodes.
