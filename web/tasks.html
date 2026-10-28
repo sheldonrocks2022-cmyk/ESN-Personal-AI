@@ -10,8 +10,18 @@
 let csrf='';const msg=document.getElementById('msg');const output=(s)=>msg.textContent=s;const node=(t,v)=>{const x=document.createElement(t);if(v!==undefined)x.textContent=v;return x};
 async function api(path,body){const opt={credentials:'same-origin',headers:{}};if(body!==undefined){opt.method='POST';opt.headers['Content-Type']='application/json';opt.headers['X-ESN-CSRF']=csrf;opt.body=JSON.stringify(body)}const r=await fetch(path,opt);const j=await r.json();if(!r.ok)throw Error(j.error||'Request failed');return j}
 const opts=(kind)=>kind==='browser_scan'?{target:document.getElementById('target').value}:{};
-const option=(x)=>{const n=node('option',x.replaceAll('_',' '));n.value=x;return n};
-function addKinds(kinds){for(const id of ['kind','skind']){let s=document.getElementById(id);s.replaceChildren(...kinds.map(option))}}
+const option=(x)=>{const n=node('option',x==='browser_scan'?'browser scan (optional Playwright required)':x.replaceAll('_',' '));n.value=x;return n};
+function addKinds(kinds){
+  const preferred='esn_website_health';
+  for(const id of ['kind','skind']){
+    const s=document.getElementById(id), selected=s.value;
+    s.replaceChildren(...kinds.map(option));
+    // Keep a user's selected task when Refresh rebuilds the options.
+    // Prefer the lightweight website check, not browser_scan, on first load.
+    const fallback=kinds.includes(preferred)?preferred:(kinds.find(k=>k!=='browser_scan')||kinds[0]||'');
+    s.value=kinds.includes(selected)?selected:fallback;
+  }
+}
 async function loadResources(){try{const r=await api('/api/operations/resources');const state=document.getElementById('ram-state'),desc=document.getElementById('ram-text'),meter=document.getElementById('ram-meter');if(r.shared_cap_active && r.used_bytes!==null){const used=(r.used_bytes/1073741824).toFixed(2);state.textContent='Shared cap active';desc.textContent=used+' GiB of 8 GiB used in the Jarvis slice';meter.value=Math.min(100,r.usage_percent||0)}else{state.textContent='Not active / unverified';desc.textContent='The 8 GiB shared systemd limit is not active yet. Apply the resource-budget deployment and verify service membership.';meter.value=0}}catch(e){document.getElementById('ram-state').textContent='Unavailable';document.getElementById('ram-text').textContent='Unable to read resource usage.'}}
 async function init(){try{const s=await api('/api/connections');csrf=s.csrf;await refresh();await loadResources()}catch(e){output('Sign in at Connections first. '+e.message)}}
 async function refresh(){try{let d=await api('/api/operations');addKinds(d.kinds);let tasks=document.getElementById('jobs');tasks.replaceChildren();for(const task of d.jobs){let line=node('div');line.className='item';let header=node('div');header.className='row';header.append(node('b',task.kind+' · '+task.id.slice(0,8)),node('span',task.status));line.append(header,node('small',task.created_at));if(task.error)line.append(node('p',task.error));if(task.result_json){let detail=node('details'),summary=node('summary','Verified result'),pre=node('pre',JSON.stringify(JSON.parse(task.result_json),null,2));detail.append(summary,pre);line.append(detail)}if(task.status==='queued'){let b=node('button','Cancel');b.className='secondary';b.onclick=()=>act('/api/operations/cancel',{id:task.id});line.append(b)}tasks.append(line)}if(!d.jobs.length)tasks.append(node('p','No checks yet.'));
