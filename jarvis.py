@@ -10,6 +10,7 @@ import threading
 import uuid
 
 import connections
+import creative
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -168,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if connections.handle(self):
             return
+        if creative.handle(self):
+            return
         if self.path == "/health":
             return self.send_json(200, {"service": "esn-jarvis", "status": "running", "version": "0.1"})
         if not self.authorized():
@@ -194,6 +197,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if connections.handle(self):
             return
+        if creative.handle(self):
+            return
         if not self.authorized():
             return self.deny()
         try:
@@ -216,6 +221,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         if connections.handle(self):
+            return
+        if creative.handle(self):
             return
         return self.send_json(404, {"error": "Not found"})
 
