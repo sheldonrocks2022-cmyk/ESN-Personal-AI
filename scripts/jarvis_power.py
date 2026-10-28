@@ -14,7 +14,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import customer_capacity
+if __package__:
+    from . import customer_capacity
+else:
+    import customer_capacity
 
 DISCORD = "esn-jarvis-discord.service"
 WEB = "esn-jarvis.service"
@@ -115,6 +118,8 @@ def read_state():
             set(data["units"]) != set(data["enabled"]) or
             any(state not in ALLOWED_ENABLED for state in data["enabled"].values())):
         raise RuntimeError("Invalid saved Jarvis power state; refusing changes")
+    if "capacity" in data:
+        customer_capacity._validate_config(data["capacity"])
     return data
 
 
