@@ -5,12 +5,14 @@ DISCORD_OWNER_USER_ID + DISCORD_CONNECTION_ID. No privileged intents requested.
 """
 import asyncio
 import os
+import time
 
 from connections import read_secret_local
 import jarvis
 import memory_store
 import autonomous
 import maintenance
+import dm_access
 
 
 def run():
@@ -23,12 +25,22 @@ def run():
     if owner_id <= 0 or not conn_id:
         raise SystemExit('Set DISCORD_OWNER_USER_ID and DISCORD_CONNECTION_ID')
     token = read_secret_local(conn_id)
-    client = discord.Client(intents=discord.Intents.default())
+    intents = discord.Intents.default()
+    intents.dm_messages = True
+    # Bot DM content does not require privileged guild message-content intent.
+    client = discord.Client(intents=intents)
     tree = app_commands.CommandTree(client)
+    blocked_notice = {}
+    dm_semaphore = asyncio.Semaphore(1)
+
+    async def dm_text(message, body):
+        async with dm_semaphore:
+            await message.channel.send(body[:1800], allowed_mentions=discord.AllowedMentions.none())
+
 
     async def owner_only(interaction):
         if interaction.user.id != owner_id:
-            await interaction.response.send_message('Private ESN owner command.', ephemeral=True)
+            await interaction.response.send_message(dm_access.PRIVATE_REPLY, ephemeral=True)
             return False
         return True
 
@@ -42,16 +54,28 @@ def run():
         except Exception:
             await interaction.followup.send('Panel check failed. Check Jarvis server logs.', ephemeral=True)
 
-    @tree.command(name='jarvis_ask', description='Ask your private Jarvis assistant a question')
+    @tree.command(name='jarvis_ask', description='Ask Jarvis privately (owner or time-limited DM guest)')
     @app_commands.describe(question='Your question for Jarvis')
     async def ask(interaction: discord.Interaction, question: str):
-        if not await owner_only(interaction): return
+        owner = interaction.user.id == owner_id
+        guest = not owner and interaction.guild is None
+        if not owner and not guest:
+            await interaction.response.send_message(dm_access.PRIVATE_REPLY, ephemeral=True)
+            return
+        if guest:
+            decision = await asyncio.to_thread(dm_access.consume, interaction.user.id)
+            if decision == 'denied':
+                await interaction.response.send_message(dm_access.PRIVATE_REPLY, ephemeral=True)
+                return
+            if decision == 'cooldown':
+                await interaction.response.send_message('Please slow down before your next question.', ephemeral=True)
+                return
         await interaction.response.defer(ephemeral=True)
         try:
-            reply = await asyncio.to_thread(jarvis.chat, question)
-            await interaction.followup.send(reply[:1800], ephemeral=True)
+            reply = await asyncio.to_thread(jarvis.chat if owner else dm_access.guest_chat, question)
+            await interaction.followup.send(reply[:1800], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
         except Exception:
-            await interaction.followup.send('AI request failed. Check private server logs.', ephemeral=True)
+            await interaction.followup.send('AI request failed. Please try again later.', ephemeral=True)
 
     @tree.command(name='jarvis_remember', description='Privately save a fact for future Jarvis chats')
     @app_commands.describe(topic='Short label, e.g. hosting-goal', note='Fact to remember (never passwords or tokens)')
@@ -185,15 +209,97 @@ def run():
         except Exception:
             await interaction.followup.send('Disk audit unavailable. See private service logs.', ephemeral=True)
 
+    @tree.command(name='jarvis_dm_grant', description='Owner: permit a user to chat privately for a limited time')
+    @app_commands.describe(user_id='Recipient numeric Discord user ID',
+                           minutes='Access duration, 5 to 1440 minutes',
+                           messages='Maximum guest questions, 1 to 30')
+    async def dm_grant(interaction: discord.Interaction, user_id: str, minutes: int, messages: int = 12):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            if int(dm_access.validate_user_id(user_id)) == owner_id:
+                raise ValueError('Owner already has access')
+            saved = await asyncio.to_thread(dm_access.grant, user_id, minutes, messages)
+            await interaction.followup.send(
+                f'Guest permission saved for user {saved["user_id"]}. '
+                f'Expires <t:{saved["expires_at"]}:R>; maximum {saved["remaining"]} messages. '
+                'They may DM ESN Jarvis to begin. No infrastructure, account, server or owner memory access.',
+                ephemeral=True,
+            )
+        except (ValueError, TypeError) as exc:
+            await interaction.followup.send(f'Permission not granted: {str(exc)[:170]}', ephemeral=True)
+
+    @tree.command(name='jarvis_dm_revoke', description='Owner: immediately revoke one temporary guest')
+    @app_commands.describe(user_id='Recipient numeric Discord user ID')
+    async def dm_revoke(interaction: discord.Interaction, user_id: str):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            changed = await asyncio.to_thread(dm_access.revoke, user_id)
+            await interaction.followup.send(
+                'Guest access revoked.' if changed else 'No guest grant for that ID.', ephemeral=True
+            )
+        except ValueError:
+            await interaction.followup.send('Invalid Discord user ID.', ephemeral=True)
+
+    @tree.command(name='jarvis_dm_guests', description='Owner: list active temporary private chat grants')
+    async def dm_guests(interaction: discord.Interaction):
+        if not await owner_only(interaction): return
+        await interaction.response.defer(ephemeral=True)
+        rows = await asyncio.to_thread(dm_access.active_grants)
+        if not rows:
+            await interaction.followup.send('No active Jarvis DM guests.', ephemeral=True)
+            return
+        lines = [
+            f'User {r["user_id"]}: {r["remaining"]} questions left, expires <t:{r["expires_at"]}:R>'
+            for r in rows
+        ]
+        await interaction.followup.send('\n'.join(lines)[:1700], ephemeral=True)
+
+    @client.event
+    async def on_message(message: discord.Message):
+        # Deliberately ignore ALL guild text; bot DMs only.
+        if message.author.bot or message.guild is not None or not isinstance(message.channel, discord.DMChannel):
+            return
+        body = (message.content or '').strip()
+        owner = message.author.id == owner_id
+        if not owner:
+            decision = await asyncio.to_thread(dm_access.consume, message.author.id)
+            if decision == 'denied':
+                stamp = time.monotonic()
+                if stamp - blocked_notice.get(message.author.id, -9999) >= 60:
+                    blocked_notice[message.author.id] = stamp
+                    if len(blocked_notice) > 300:
+                        blocked_notice.clear()
+                    await dm_text(message, dm_access.PRIVATE_REPLY)
+                return
+            if decision == 'cooldown':
+                await dm_text(message, 'Please slow down before your next question.')
+                return
+        if not body:
+            await dm_text(message, 'Please send a text question to Jarvis.')
+            return
+        try:
+            if owner and len(body) > 4000:
+                await dm_text(message, 'Please send a message under 4,000 characters.')
+                return
+            if not owner and len(body) > 1300:
+                await dm_text(message, 'Please send a question under 1,300 characters.')
+                return
+            async with message.channel.typing():
+                reply = await asyncio.to_thread(jarvis.chat if owner else dm_access.guest_chat, body)
+            await dm_text(message, reply)
+        except Exception:
+            await dm_text(message, 'Jarvis is temporarily unavailable. Please try again later.')
+
     @client.event
     async def on_ready():
+        await tree.sync()  # Global commands can appear in bot DMs.
         if guild_id:
             guild = discord.Object(id=int(guild_id))
             tree.copy_global_to(guild=guild)
             await tree.sync(guild=guild)
-        else:
-            await tree.sync()
-        print('ESN Discord bridge signed in; owner-only commands synced')
+        print('ESN Discord bridge online; bot DMs and owner-only commands synced')
 
     client.run(token, log_handler=None)
 
