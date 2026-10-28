@@ -6,7 +6,7 @@ credentials, shell execution or host-wide process listing.
 from pathlib import Path
 
 BUDGET_BYTES = 8 * 1024**3
-SLICE = Path("/sys/fs/cgroup/esn-jarvis.slice")
+SLICE = Path("/sys/fs/cgroup/esnjarvis.slice")
 
 
 def _number(path):
@@ -40,5 +40,5 @@ def snapshot(slice_path=SLICE):
         "throttle_above_bytes": high,
         "usage_percent": round(100 * current / BUDGET_BYTES, 1) if current is not None else None,
         "events": events,
-        "note": "Only services assigned to esn-jarvis.slice count. Verify service Slice= after restarting each service.",
+        "note": "Only services assigned to esnjarvis.slice count. Verify service Slice= after restarting each service.",
     }
