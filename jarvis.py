@@ -11,6 +11,7 @@ import uuid
 
 import connections
 import creative
+import operations
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -171,6 +172,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if creative.handle(self):
             return
+        if operations.handle(self):
+            return
         if self.path == "/health":
             return self.send_json(200, {"service": "esn-jarvis", "status": "running", "version": "0.1"})
         if not self.authorized():
@@ -199,6 +202,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if creative.handle(self):
             return
+        if operations.handle(self):
+            return
         if not self.authorized():
             return self.deny()
         try:
@@ -224,6 +229,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if creative.handle(self):
             return
+        if operations.handle(self):
+            return
         return self.send_json(404, {"error": "Not found"})
 
     def log_message(self, format, *args):
@@ -238,9 +245,11 @@ def main():
     connections.validate_configuration()
     with database() as conn:
         conn.execute("UPDATE jobs SET status='interrupted', finished_at=? WHERE status IN ('running','queued')", (utc_now(),))
+    operations.start_worker()
+    creative.start_worker()
     host = os.environ.get("ESN_BIND", "127.0.0.1")
     port = int(os.environ.get("ESN_PORT", "8765"))
-    print(f"ESN Jarvis v0.2 listening at http://{host}:{port} (read-only Pterodactyl)")
+    print(f"ESN Jarvis v0.4 listening at http://{host}:{port} (read-only Pterodactyl)")
     ThreadingHTTPServer((host, port), Handler).serve_forever()
 
 if __name__ == "__main__":
