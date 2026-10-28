@@ -126,6 +126,14 @@ def chat(message):
         raise ValueError("message must contain 1 to 4000 characters")
     message = agent.sanitize_message(message)
     context = history(12)
+    # Model-independent route for an explicit, single panel health-check job.
+    # This prevents small local models from inventing invalid tool parameters.
+    direct_reply = agent.queue_explicit_panel_job(message)
+    if direct_reply is not None:
+        with database() as conn:
+            conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("user", message, utc_now()))
+            conn.execute("INSERT INTO messages (role,content,created_at) VALUES (?,?,?)", ("assistant", direct_reply, utc_now()))
+        return direct_reply
     system = "You are ESN Jarvis. You can request ONLY the declared read-only check tool. If a user asks to inspect ESN hosting, use the tool to enqueue the task and mention its job ID, but never claim it has completed. No payment, customer server changes, DNS writes, logins, CAPTCHA bypasses, or arbitrary shell commands. Do not request credentials in chat; direct them to the private Connections vault."
     payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": system}, *context, {"role": "user", "content": message}], "tools": agent.TOOLS, "tool_choice": "auto", "max_tokens": 700}
     if AI_PROVIDER == "ollama":
