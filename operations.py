@@ -138,7 +138,9 @@ def _claim():
     try:
         db.execute('BEGIN IMMEDIATE')
         # On a restarted worker, read-only requests can be safely retried when their lease expires.
-        db.execute("UPDATE operation_jobs SET status='queued' WHERE status='running' AND lease_until < ?", (int(time.time()),))
+        stamp = int(time.time())
+        db.execute("UPDATE operation_jobs SET status='failed',finished_at=?,error='Worker lease expired twice',lease_until=NULL WHERE status='running' AND lease_until < ? AND attempts >= ?", (now(), stamp, MAX_ATTEMPTS))
+        db.execute("UPDATE operation_jobs SET status='queued',lease_until=NULL WHERE status='running' AND lease_until < ? AND attempts < ?", (stamp, MAX_ATTEMPTS))
         row = db.execute("SELECT id,kind,options_json,attempts FROM operation_jobs WHERE status='queued' AND attempts < ? ORDER BY created_at LIMIT 1", (MAX_ATTEMPTS,)).fetchone()
         if row:
             db.execute("UPDATE operation_jobs SET status='running',attempts=attempts+1,started_at=?,lease_until=? WHERE id=?",
