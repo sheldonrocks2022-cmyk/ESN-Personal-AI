@@ -262,7 +262,7 @@ def main(argv=None):
         description="Reversible ESN Jarvis on/off/status controls. Never touches customer hosting units."
     )
     parser.add_argument("action", choices=("status", "off", "on", "customers"))
-    parser.add_argument("customer_action", nargs="?", choices=("check", "enable", "disable"))
+    parser.add_argument("customer_action", nargs="?", choices=("check", "plan", "enable", "disable"))
     parser.add_argument("--boost-mib", type=int, default=customer_capacity.DEFAULT_BOOST_MIB,
                         help="opt-in customer RAM cap change, default 8192 MiB")
     parser.add_argument("--keep-ollama", action="store_true",
@@ -289,6 +289,8 @@ def main(argv=None):
                         on()
                     elif args.customer_action == "check":
                         customer_capacity.check(args.boost_mib)
+                    elif args.customer_action == "plan":
+                        customer_capacity.print_safe_plan(args.boost_mib)
                     elif args.customer_action == "enable":
                         if read_state() is not None:
                             raise RuntimeError("Turn Jarvis ON before enabling customer-first mode")
@@ -301,6 +303,8 @@ def main(argv=None):
                 on(dry_run=True)
             elif args.customer_action == "check":
                 customer_capacity.check(args.boost_mib)
+            elif args.customer_action == "plan":
+                customer_capacity.print_safe_plan(args.boost_mib)
             else:
                 print("DRY RUN ONLY; customer-first configuration unchanged.")
     except (RuntimeError, OSError, BlockingIOError) as exc:
