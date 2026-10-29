@@ -108,10 +108,10 @@ def _node_update_body(path, memory):
         result[field] = value
     result["memory"] = memory
     for field in ("description", "behind_proxy", "maintenance_mode",
-                  "upload_size", "daemon_base"):
+                  "upload_size", "daemon_base", "public"):
         if field in node:
             value = node[field]
-            if field in ("behind_proxy", "maintenance_mode") and type(value) is not bool:
+            if field in ("behind_proxy", "maintenance_mode", "public") and type(value) is not bool:
                 raise RuntimeError("Invalid node option: " + field)
             if field == "upload_size" and type(value) is not int:
                 raise RuntimeError("Invalid node option: " + field)
@@ -370,6 +370,61 @@ def print_safe_plan(boost_mib=DEFAULT_BOOST_MIB):
     else:
         print("Check existing customer allocations and node policy before enabling any switching.")
     print("No panel API writes; no service stop; no customer server changes.")
+    return proposal
+
+
+def correct_oversized_baseline(*, expected_node_id, boost_mib=DEFAULT_BOOST_MIB,
+                               apply=False):
+    """Opt-in correction of the *local* Wings node's impossible memory cap.
+
+    Default is read-only preview. The guarded write is explicitly requested
+    from root via the same Jarvis power-control lock, never from AI/Discord.
+    """
+    if type(expected_node_id) is not int or not 1 <= expected_node_id <= 99999999:
+        raise RuntimeError("Explicit numeric --node-id is required")
+    if config() is not None:
+        raise RuntimeError("Customer-first mode is already configured; refusing baseline correction")
+    proposal = plan_safe_limits(boost_mib)
+    if proposal["node_id"] != expected_node_id:
+        raise RuntimeError("Specified node ID does not match local Wings UUID")
+    if proposal["existing_node_mib"] == proposal["suggested_on_mib"]:
+        if apply:
+            print("Safe baseline already configured; no write needed.")
+        else:
+            print("Node already has the suggested safe baseline.")
+        return proposal
+    if not proposal["current_node_is_oversized"] or proposal["existing_node_mib"] <= proposal["physical_mib"]:
+        raise RuntimeError(
+            "Node limit is not an obviously impossible oversized value; "
+            "refusing automatic baseline correction"
+        )
+    print("VERIFIED LOCAL NODE %d: current %d MiB, allocated %d MiB" %
+          (proposal["node_id"], proposal["existing_node_mib"],
+           proposal["customer_allocated_mib"]))
+    print("Finite baseline correction: %d MiB (Jarvis ON). Future OFF target: %d MiB." %
+          (proposal["suggested_on_mib"], proposal["suggested_off_mib"]))
+    print("Customer server RAM limits and running containers will not be changed.")
+    if not apply:
+        print("DRY RUN — no panel write. "
+              "When approved use: esnjarvis customers baseline --node-id %d --apply" %
+              expected_node_id)
+        return proposal
+    current = _node(expected_node_id, proposal["node_uuid"])
+    if (current["memory"] != proposal["existing_node_mib"] or
+            current["memory_overallocate"] != 0 or
+            current["allocated_resources"]["memory"] > proposal["suggested_on_mib"] or
+            _total_mib() != proposal["physical_mib"]):
+        raise RuntimeError("Node or host capacity changed after preflight; refusing correction")
+    # Only the node's advertised scheduler memory changes. The transport
+    # preserves validated required node fields from a fresh GET.
+    _patch(expected_node_id, proposal["suggested_on_mib"], proposal["node_uuid"])
+    verified = _node(expected_node_id, proposal["node_uuid"])
+    if verified["memory"] != proposal["suggested_on_mib"]:
+        raise RuntimeError("Node baseline correction was not verified")
+    print("SUCCESS: local Node %d now advertises %d MiB." %
+          (expected_node_id, verified["memory"]))
+    print("No customer server allocations were changed.")
+    print("NEXT: use 'esnjarvis customers check' before separately enabling customer-first mode.")
     return proposal
 
 
