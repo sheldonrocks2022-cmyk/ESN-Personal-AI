@@ -133,6 +133,8 @@ def plan():
         if not names or any(name.strip() != JARVIS_HOST for name in names):
             raise RuntimeError("Jarvis Nginx site contains another hostname; refusing deletion")
     if NGINX_ENABLED.exists() or NGINX_ENABLED.is_symlink():
+        if conf is None:
+            raise RuntimeError("Enabled Jarvis Nginx link has no valid source configuration")
         if not NGINX_ENABLED.is_symlink() or NGINX_ENABLED.resolve() != NGINX_AVAILABLE:
             raise RuntimeError("Jarvis Nginx enabled path is not the expected site link")
     print("JARVIS-ONLY UNINSTALL VERIFIED")
