@@ -16,6 +16,13 @@ import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, HTTPRedirectHandler, build_opener
 
+# This helper is launched as an absolute script path by root/Termius.
+# Add the sibling application directory explicitly so importing
+# connections.py succeeds even when cwd is /root.
+APP_DIR = Path(__file__).resolve().parent.parent
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR)
+
 ENV_PATH = Path("/etc/esn-jarvis.env")
 PANEL_NODES_URL = "https://panel.esnoffical.com/api/application/nodes?per_page=1"
 EXPECTED_LABEL = "ESN Jarvis Customer Capacity"
