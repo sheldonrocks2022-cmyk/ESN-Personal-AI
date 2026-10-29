@@ -52,24 +52,27 @@ class VaultSyncTests(unittest.TestCase):
         own.start()
         self.addCleanup(own.stop)
 
-    def test_absolute_script_path_imports_connections_from_other_cwd(self):
-        # Replicates the exact Termius invocation that previously raised
-        # ModuleNotFoundError when root's cwd was outside the app directory.
+    def test_absolute_script_path_without_importing_app_code(self):
+        # Simulate root running the helper from /root (outside app cwd).
         script = Path(vaultsync.__file__).resolve()
-        project = script.parent.parent
         with tempfile.TemporaryDirectory() as elsewhere:
             probe = (
                 "import runpy,sys; "
-                "runpy.run_path(sys.argv[1],run_name='jarvis_vault_probe'); "
-                "import connections; print(connections.__file__)"
+                "data=runpy.run_path(sys.argv[1],run_name='jarvis_vault_probe'); "
+                "print(data['EXPECTED_LABEL'])"
             )
             result = subprocess.run(
                 [sys.executable, "-I", "-c", probe, str(script)],
                 cwd=elsewhere, text=True, capture_output=True, timeout=15,
             )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(Path(result.stdout.strip()).resolve(),
-                         (project / "connections.py").resolve())
+        self.assertEqual(result.stdout.strip(), vaultsync.EXPECTED_LABEL)
+
+    def test_helper_has_no_root_import_of_user_app_connections(self):
+        import inspect
+        source = inspect.getsource(vaultsync)
+        self.assertNotIn("import connections", source)
+        self.assertIn("mode=ro", source)
 
     def test_saved_key_stays_hidden_and_old_key_is_replaced(self):
         with patch.object(vaultsync, "_verify_panel_key", return_value=True) as api:
