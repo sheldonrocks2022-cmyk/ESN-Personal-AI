@@ -147,6 +147,85 @@ class CustomerCapacityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "finite positive"):
             cap._node_update_body("/api/application/nodes/3", 4294967295)
 
+    def test_baseline_preview_is_readonly_and_checks_exact_local_node(self):
+        self.panel.memory = 4294967295
+        self.panel.allocated = 9216
+        with patch.object(cap, "_total_mib", return_value=24032):
+            proposal = cap.correct_oversized_baseline(expected_node_id=3)
+            self.assertEqual(proposal["suggested_on_mib"], 11264)
+            self.assertEqual(self.panel.memory, 4294967295)
+            self.assertEqual(self.panel.patches, [])
+            with self.assertRaisesRegex(RuntimeError,"does not match local Wings"):
+                cap.correct_oversized_baseline(expected_node_id=1, apply=True)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_baseline_apply_corrects_only_the_verified_node_limit(self):
+        self.panel.memory = 4294967295
+        self.panel.allocated = 9216
+        with patch.object(cap, "_total_mib", return_value=24032):
+            cap.correct_oversized_baseline(expected_node_id=3, apply=True)
+        self.assertEqual(self.panel.patches, [11264])
+        self.assertEqual(self.panel.memory, 11264)
+        self.assertEqual(self.panel.allocated, 9216)
+        self.assertFalse(self.conf.exists())
+        self.assertFalse(power.STATE_FILE.exists())
+
+    def test_baseline_rejects_customer_ram_above_safe_on_target(self):
+        self.panel.memory = 4294967295
+        self.panel.allocated = 12288
+        with patch.object(cap, "_total_mib", return_value=24032):
+            with self.assertRaisesRegex(RuntimeError, "Do not reduce existing allocations"):
+                cap.correct_oversized_baseline(expected_node_id=3, apply=True)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_baseline_is_not_rerun_if_node_has_finite_limit(self):
+        self.panel.memory = 15000
+        with patch.object(cap, "_total_mib", return_value=24032):
+            with self.assertRaisesRegex(RuntimeError, "not an obviously impossible"):
+                cap.correct_oversized_baseline(expected_node_id=3, apply=True)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_baseline_can_be_repeated_if_already_correct(self):
+        self.panel.memory = 11264
+        self.panel.allocated = 9216
+        with patch.object(cap, "_total_mib", return_value=24032):
+            cap.correct_oversized_baseline(expected_node_id=3, apply=True)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_baseline_race_change_blocks_all_mutations(self):
+        self.panel.memory = 4294967295
+        self.panel.allocated = 9216
+        call_count = 0
+        original_node = cap._node
+        def race(*args):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                self.panel.allocated = 15000
+            return original_node(*args)
+        with patch.object(cap, "_total_mib", return_value=24032), \
+             patch.object(cap, "_node", side_effect=race):
+            with self.assertRaisesRegex(RuntimeError, "changed after preflight"):
+                cap.correct_oversized_baseline(expected_node_id=3, apply=True)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_full_node_update_payload_keeps_public_flag(self):
+        item = self.panel._item()
+        attrs = item["attributes"]
+        attrs.update({
+            "description":"Dedicated ESN Node",
+            "location_id":1,
+            "scheme":"https",
+            "disk":90000,
+            "disk_overallocate":0,
+            "daemon_listen":8080,
+            "daemon_sftp":2022,
+            "public":True,
+        })
+        with patch.object(cap, "_api", return_value=item):
+            body = cap._node_update_body("/api/application/nodes/3", 11264)
+        self.assertIs(body["public"], True)
+
     def test_readonly_safety_planner_handles_massively_oversized_node(self):
         self.panel.id = 3
         self.panel.memory = 4294967295

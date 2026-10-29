@@ -104,3 +104,9 @@ Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read
 - Added read-only `esnjarvis customers plan` that verifies node UUID/identity, allocation totals and physical RAM, proposes an 8192 MiB customer ON/OFF difference with at least 4096 MiB outside the node quota, and refuses plans that could undercut current customer allocations.
 - A current node memory ceiling of `4294967295 MiB` is unrealistic on a 24032 MiB physical host; previous `customers enable` is intentionally blocked. The planner does not automatically lower limits or alter running servers.
 - If owner approves after inspection, they can separately correct the node limit; only then should the existing customer-first enable flow be considered. See [Step 59](STEP59_NODE_RAM_PLAN.md).
+
+## Step 60 — CLI-only correction of unrealistic Node 1 scheduling RAM
+
+- User does not want to manually set memory in the panel UI. Added `esnjarvis customers baseline --node-id 1` read-only preview and explicit `--apply` guard to update only the verified local Pterodactyl node's advertised memory through its Application API.
+- Preserves running customer memory limits, unrelated node fields, running Wings/Docker/Nginx and Jarvis ON status. Refuses wrong node, insufficient host/OS reserve, customer allocations above the ON cap, or changed node state.
+- After separately approved correction to 11264 MiB, the existing Step 58 `customers check` and `customers enable` may activate the 8192 MiB ON/OFF customer-first scheduling difference. [Step 60](STEP60_CLI_BASELINE.md).

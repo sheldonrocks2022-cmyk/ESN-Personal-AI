@@ -262,9 +262,13 @@ def main(argv=None):
         description="Reversible ESN Jarvis on/off/status controls. Never touches customer hosting units."
     )
     parser.add_argument("action", choices=("status", "off", "on", "customers"))
-    parser.add_argument("customer_action", nargs="?", choices=("check", "plan", "enable", "disable"))
+    parser.add_argument("customer_action", nargs="?", choices=("check", "plan", "baseline", "enable", "disable"))
     parser.add_argument("--boost-mib", type=int, default=customer_capacity.DEFAULT_BOOST_MIB,
                         help="opt-in customer RAM cap change, default 8192 MiB")
+    parser.add_argument("--node-id", type=int,
+                        help="explicitly identify the local Wings node for baseline preview/correction")
+    parser.add_argument("--apply", action="store_true",
+                        help="approve the guarded node baseline correction; otherwise preview only")
     parser.add_argument("--keep-ollama", action="store_true",
                         help="with off: leave potentially shared Ollama untouched")
     parser.add_argument("--dry-run", action="store_true",
@@ -273,7 +277,13 @@ def main(argv=None):
     if args.keep_ollama and args.action != "off":
         parser.error("--keep-ollama applies only to off")
     if (args.action == "customers") != (args.customer_action is not None):
-        parser.error("'customers' requires check, enable or disable")
+        parser.error("'customers' requires a subcommand")
+    if (args.apply or args.node_id is not None) and not (
+        args.action == "customers" and args.customer_action == "baseline"
+    ):
+        parser.error("--apply and --node-id are for 'customers baseline' only")
+    if args.customer_action == "baseline" and args.node_id is None:
+        parser.error("baseline preview/correction requires --node-id")
     try:
         if args.action == "status":
             status()
@@ -291,6 +301,14 @@ def main(argv=None):
                         customer_capacity.check(args.boost_mib)
                     elif args.customer_action == "plan":
                         customer_capacity.print_safe_plan(args.boost_mib)
+                    elif args.customer_action == "baseline":
+                        if read_state() is not None or any(active(u) != "active" for u in SHUTDOWN_ORDER):
+                            raise RuntimeError("Jarvis must be ON with all three services active to correct baseline")
+                        customer_capacity.correct_oversized_baseline(
+                            expected_node_id=args.node_id,
+                            boost_mib=args.boost_mib,
+                            apply=args.apply,
+                        )
                     elif args.customer_action == "enable":
                         if read_state() is not None:
                             raise RuntimeError("Turn Jarvis ON before enabling customer-first mode")
@@ -305,6 +323,10 @@ def main(argv=None):
                 customer_capacity.check(args.boost_mib)
             elif args.customer_action == "plan":
                 customer_capacity.print_safe_plan(args.boost_mib)
+            elif args.customer_action == "baseline":
+                customer_capacity.correct_oversized_baseline(
+                    expected_node_id=args.node_id, boost_mib=args.boost_mib, apply=False
+                )
             else:
                 print("DRY RUN ONLY; customer-first configuration unchanged.")
     except (RuntimeError, OSError, BlockingIOError) as exc:
