@@ -107,6 +107,46 @@ class CustomerCapacityTests(unittest.TestCase):
             self.addCleanup(p.stop)
         power.prepare_dir()
 
+    def test_update_body_preserves_required_panel_configuration(self):
+        item = self.panel._item()
+        attrs = item["attributes"]
+        attrs.update({
+            "description": "ESN customer node",
+            "location_id": 1,
+            "fqdn": "node1.esnoffical.com",
+            "scheme": "https",
+            "disk": 90000,
+            "disk_overallocate": 0,
+            "daemon_listen": 8080,
+            "daemon_sftp": 2022,
+            "behind_proxy": False,
+            "maintenance_mode": False,
+            "upload_size": 100,
+            "daemon_base": "/var/lib/pterodactyl/volumes",
+        })
+        # Simulate Pterodactyl's complete Application API node read response.
+        with patch.object(cap, "_api", return_value=item):
+            body = cap._node_update_body("/api/application/nodes/3", 19456)
+        self.assertEqual(body["memory"], 19456)
+        self.assertEqual(body["name"], "ESN Node 3")
+        self.assertEqual(body["fqdn"], "node1.esnoffical.com")
+        self.assertEqual(body["memory_overallocate"], 0)
+        self.assertEqual(body["daemon_sftp"], 2022)
+        self.assertEqual(body["disk"], 90000)
+        self.assertEqual(body["daemon_base"], "/var/lib/pterodactyl/volumes")
+        self.assertNotIn("allocated_resources", body)
+        self.assertNotIn("reset_secret", body)
+
+    def test_update_body_refuses_missing_required_fields(self):
+        with patch.object(cap, "_api", return_value=self.panel._item()):
+            with self.assertRaisesRegex(RuntimeError, "Missing verified Pterodactyl field"):
+                cap._node_update_body("/api/application/nodes/3", 19456)
+        self.assertEqual(self.panel.patches, [])
+
+    def test_update_body_rejects_absurd_target(self):
+        with self.assertRaisesRegex(RuntimeError, "finite positive"):
+            cap._node_update_body("/api/application/nodes/3", 4294967295)
+
     def test_readonly_safety_planner_handles_massively_oversized_node(self):
         self.panel.id = 3
         self.panel.memory = 4294967295
