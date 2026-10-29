@@ -8,6 +8,7 @@ No nano, interactive password prompt, service restart or panel mutation.
 """
 import json
 import os
+import sqlite3
 from pathlib import Path
 import re
 import stat
@@ -15,13 +16,7 @@ import sys
 import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, HTTPRedirectHandler, build_opener
-
-# This helper is launched as an absolute script path by root/Termius.
-# Add the sibling application directory explicitly so importing
-# connections.py succeeds even when cwd is /root.
-APP_DIR = Path(__file__).resolve().parent.parent
-if str(APP_DIR) not in sys.path:
-    sys.path.insert(0, str(APP_DIR)
+from cryptography.fernet import Fernet, InvalidToken
 
 ENV_PATH = Path("/etc/esn-jarvis.env")
 PANEL_NODES_URL = "https://panel.esnoffical.com/api/application/nodes?per_page=1"
@@ -70,28 +65,42 @@ def _read_protected_env(path=ENV_PATH):
 
 
 def _get_saved_key(variables):
-    import connections
-    old_path, old_key = connections.DB_PATH, connections.VAULT_KEY
+    """Read one encrypted vault record directly in SQLite read-only mode.
+
+    Do not import Jarvis's user-writable app code as root. This helper
+    only needs the audited vault schema and the standard Fernet decryptor.
+    """
+    location = Path(variables["ESN_DB_PATH"])
+    if location.is_symlink() or not location.is_file():
+        raise RuntimeError("Encrypted Jarvis vault database not found safely")
+    if location.stat().st_mode & 0o002:
+        raise RuntimeError("Refusing world-writable vault database")
     try:
-        connections.DB_PATH = variables["ESN_DB_PATH"]
-        connections.VAULT_KEY = variables["ESN_VAULT_KEY"]
-        credentials = [
-            item for item in connections.list_connections()
-            if item["kind"] == "pterodactyl"
-        ]
-        chosen = [item for item in credentials if item["label"] == EXPECTED_LABEL]
-        if len(chosen) != 1:
-            if not chosen and len(credentials) == 1:
-                chosen = credentials
-            else:
-                raise RuntimeError("Cannot safely select a unique saved Pterodactyl connection. "
-                                   "Keep only one or label it 'ESN Jarvis Customer Capacity'.")
-        key = connections.read_secret_local(chosen[0]["id"])
-    finally:
-        connections.DB_PATH, connections.VAULT_KEY = old_path, old_key
-    if not key.startswith("ptla_") or not 25 <= len(key) <= 1000 or any(c.isspace() for c in key):
+        with sqlite3.connect("file:" + location.as_uri().split("file:", 1)[-1] +
+                             "?mode=ro", uri=True, timeout=5) as db:
+            rows = db.execute(
+                "SELECT label, secret_blob FROM vault_connections "
+                "WHERE kind='pterodactyl' ORDER BY created_at DESC LIMIT 101"
+            ).fetchall()
+    except sqlite3.Error:
+        raise RuntimeError("Could not read encrypted Jarvis vault") from None
+    matches = [row for row in rows if row[0] == EXPECTED_LABEL]
+    if len(matches) == 1:
+        selected = matches[0]
+    elif not matches and len(rows) == 1:
+        selected = rows[0]
+    else:
+        raise RuntimeError(
+            "Cannot safely select a unique saved Pterodactyl connection. "
+            "Keep only one or label it 'ESN Jarvis Customer Capacity'."
+        )
+    try:
+        secret = Fernet(variables["ESN_VAULT_KEY"].encode("ascii")).decrypt(selected[1]).decode("utf-8")
+    except (InvalidToken, ValueError, TypeError, UnicodeError):
+        raise RuntimeError("Encrypted Jarvis credential could not be decrypted") from None
+    if not secret.startswith("ptla_") or not 25 <= len(secret) <= 1000 or any(c.isspace() for c in secret):
         raise RuntimeError("Saved connection is not a valid-format Application API key")
-    return key
+    return secret
 
 
 def _verify_panel_key(secret):
