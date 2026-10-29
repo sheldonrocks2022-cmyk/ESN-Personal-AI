@@ -77,12 +77,59 @@ def _wings_uuid():
         raise RuntimeError("Invalid local Wings UUID") from exc
 
 
+def _node_update_body(path, memory):
+    """Preserve all editable node settings required by the panel API.
+
+    Pterodactyl node update validators commonly require all main node fields
+    even on PATCH. A memory-only body can fail HTTP 422, or risk resetting
+    unrelated settings on nonstandard panel versions.
+    """
+    if type(memory) is not int or memory <= 0 or memory > 262144:
+        raise RuntimeError("Requested node RAM limit must be a finite positive MiB value")
+    data = _api(path)  # read again immediately before the write
+    node = _attributes(data)
+    try:
+        ident = int(path.rsplit("/", 1)[-1])
+    except ValueError:
+        raise RuntimeError("Invalid Pterodactyl node update target") from None
+    if node["id"] != ident or node["memory_overallocate"] != 0:
+        raise RuntimeError("Node identity or overallocation changed; refusing RAM update")
+    fields = ("name", "location_id", "fqdn", "scheme",
+              "memory_overallocate", "disk", "disk_overallocate",
+              "daemon_listen", "daemon_sftp")
+    result = {}
+    for field in fields:
+        value = node.get(field)
+        if field in ("name", "fqdn", "scheme"):
+            if not isinstance(value, str) or not value:
+                raise RuntimeError("Missing verified Pterodactyl field: " + field)
+        elif type(value) is not int:
+            raise RuntimeError("Missing verified Pterodactyl field: " + field)
+        result[field] = value
+    result["memory"] = memory
+    for field in ("description", "behind_proxy", "maintenance_mode",
+                  "upload_size", "daemon_base"):
+        if field in node:
+            value = node[field]
+            if field in ("behind_proxy", "maintenance_mode") and type(value) is not bool:
+                raise RuntimeError("Invalid node option: " + field)
+            if field == "upload_size" and type(value) is not int:
+                raise RuntimeError("Invalid node option: " + field)
+            if field == "daemon_base" and (not isinstance(value, str) or not value):
+                raise RuntimeError("Invalid node option: " + field)
+            if field == "description" and value is not None and not isinstance(value, str):
+                raise RuntimeError("Invalid node option: " + field)
+            result[field] = value
+    return result
+
+
 def _api(path, *, memory=None):
     """Fixed HTTPS API; no redirects that could disclose the admin token."""
     if not re.fullmatch(r"/api/application/nodes(?:\?per_page=100&page=[123]|/[0-9]{1,8})", path):
         raise ValueError("Unsupported panel API path")
     key = _env()
-    data = None if memory is None else json.dumps({"memory": memory}).encode("ascii")
+    body = _node_update_body(path, memory) if memory is not None else None
+    data = None if body is None else json.dumps(body).encode("utf-8")
     req = Request(PANEL + path, data=data, method="PATCH" if data else "GET", headers={
         "Authorization": "Bearer " + key,
         "Accept": "Application/vnd.pterodactyl.v1+json",
@@ -391,6 +438,9 @@ def off_preflight(current):
 
 
 def _patch(node_id, memory, expected_uuid):
+    before = _node(node_id, expected_uuid)
+    if before["memory_overallocate"] != 0:
+        raise RuntimeError("Memory overallocation unexpectedly enabled; refusing update")
     response = _attributes(_api("/api/application/nodes/" + str(node_id), memory=memory))
     if response["id"] != node_id or response["uuid"] != expected_uuid:
         raise RuntimeError("Panel update returned unexpected node identity")
