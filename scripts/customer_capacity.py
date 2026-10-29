@@ -125,7 +125,7 @@ def _node_update_body(path, memory):
 
 def _api(path, *, memory=None):
     """Fixed HTTPS API; no redirects that could disclose the admin token."""
-    if not re.fullmatch(r"/api/application/nodes(?:\\?per_page=100&page=[123]|/[0-9]{1,8})", path):
+    if not re.fullmatch(r"/api/application/nodes(?:\?per_page=100&page=[123]|/[0-9]{1,8})", path):
         raise ValueError("Unsupported panel API path")
     key = _env()
     body = _node_update_body(path, memory) if memory is not None else None
