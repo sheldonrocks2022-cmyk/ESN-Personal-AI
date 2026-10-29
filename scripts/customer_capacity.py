@@ -263,6 +263,69 @@ def _write_private(path, data):
         Path(name).unlink(missing_ok=True)
 
 
+def plan_safe_limits(boost_mib=DEFAULT_BOOST_MIB, reserve_mib=4096):
+    """READ-ONLY planning for a wildly oversized node limit.
+
+    Never writes the node. Proposes a finite ON/OFF scheduler ceiling where
+    customer allocations fit the ON value and the OFF ceiling is at most
+    physical RAM minus a conservative OS/software reserve.
+    """
+    if type(boost_mib) is not int or not MIN_BOOST_MIB <= boost_mib <= MAX_BOOST_MIB:
+        raise RuntimeError("Requested customer boost must be 256–8192 MiB")
+    if type(reserve_mib) is not int or reserve_mib < 4096:
+        raise RuntimeError("Read-only planner requires at least 4096 MiB OS reserve")
+    node = _local_node()
+    if node["memory_overallocate"] != 0:
+        raise RuntimeError("RAM overallocation must be zero before planning")
+    physical = _total_mib()
+    customer_allocated = node["allocated_resources"]["memory"]
+    # Round down to GiB boundaries to avoid advertising partial reserve RAM.
+    off = ((physical - reserve_mib) // 1024) * 1024
+    on = off - boost_mib
+    if off <= 0 or on <= 0 or customer_allocated > on:
+        raise RuntimeError(
+            "Customer RAM allocations do not fit an 8 GiB ON/OFF swap "
+            "with a minimum 4 GiB host reserve. Do not reduce existing allocations."
+        )
+    return {
+        "node_id": node["id"],
+        "node_uuid": node["uuid"],
+        "existing_node_mib": node["memory"],
+        "physical_mib": physical,
+        "customer_allocated_mib": customer_allocated,
+        "suggested_on_mib": on,
+        "suggested_off_mib": off,
+        "extra_customer_off_mib": boost_mib,
+        "remaining_host_off_mib": physical - off,
+        "current_node_is_oversized": node["memory"] > physical - reserve_mib,
+    }
+
+
+def print_safe_plan(boost_mib=DEFAULT_BOOST_MIB):
+    proposal = plan_safe_limits(boost_mib)
+    print("READ-ONLY CUSTOMER CAPACITY PLAN — NO CHANGES MADE")
+    print("Verified local Wings node ID:", proposal["node_id"])
+    print("Physical host RAM:", proposal["physical_mib"], "MiB")
+    print("Currently allocated to customer servers:",
+          proposal["customer_allocated_mib"], "MiB")
+    print("Currently advertised in Pterodactyl:",
+          proposal["existing_node_mib"], "MiB")
+    print("Suggested Jarvis ON node limit:", proposal["suggested_on_mib"], "MiB")
+    print("Suggested Jarvis OFF node limit:", proposal["suggested_off_mib"], "MiB")
+    print("Additional customer allocation allowance when Jarvis OFF:",
+          proposal["extra_customer_off_mib"], "MiB")
+    print("RAM outside the OFF customer limit for Linux/other services:",
+          proposal["remaining_host_off_mib"], "MiB")
+    if proposal["current_node_is_oversized"]:
+        print("WARNING: panel node limit is larger than safe physical RAM.")
+        print("DO NOT run 'esnjarvis customers enable' yet; it cannot use this huge baseline.")
+        print("Owner must separately approve a finite node-limit correction before enabling automatic switching.")
+    else:
+        print("Check existing customer allocations and node policy before enabling any switching.")
+    print("No panel API writes; no service stop; no customer server changes.")
+    return proposal
+
+
 def preflight(boost_mib=DEFAULT_BOOST_MIB):
     node = _local_node()
     return _ensure_capacity(node, boost_mib)
