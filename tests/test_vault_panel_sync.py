@@ -2,6 +2,8 @@
 from pathlib import Path
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -49,6 +51,28 @@ class VaultSyncTests(unittest.TestCase):
         own = patch.object(vaultsync.os, "fchown")
         own.start()
         self.addCleanup(own.stop)
+
+    def test_absolute_script_path_without_importing_app_code(self):
+        # Simulate root running the helper from /root (outside app cwd).
+        script = Path(vaultsync.__file__).resolve()
+        with tempfile.TemporaryDirectory() as elsewhere:
+            probe = (
+                "import runpy,sys; "
+                "data=runpy.run_path(sys.argv[1],run_name='jarvis_vault_probe'); "
+                "print(data['EXPECTED_LABEL'])"
+            )
+            result = subprocess.run(
+                [sys.executable, "-I", "-c", probe, str(script)],
+                cwd=elsewhere, text=True, capture_output=True, timeout=15,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), vaultsync.EXPECTED_LABEL)
+
+    def test_helper_has_no_root_import_of_user_app_connections(self):
+        import inspect
+        source = inspect.getsource(vaultsync)
+        self.assertNotIn("import connections", source)
+        self.assertIn("mode=ro", source)
 
     def test_saved_key_stays_hidden_and_old_key_is_replaced(self):
         with patch.object(vaultsync, "_verify_panel_key", return_value=True) as api:
