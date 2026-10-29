@@ -98,3 +98,9 @@ Global BOT_DM slash contexts and `!jarvis ...` owner-only DM text commands; read
 - Restores the original scheduler cap BEFORE Jarvis ON; refuses restart when customers allocated the extra capacity, actual host RAM is insufficient, or the API cannot verify safe restoration. Does not alter individual servers or customer processes.
 - If this VPS is not a Wings node, or the baseline already uses too much host RAM, the requested full 8192 MiB cannot be granted safely. No cross-node RAM transfer is possible.
 - See [Step 58 reservation checks and activation](STEP58_CUSTOMER_CAPACITY.md).
+
+## Step 59 — Correcting an unrealistic Pterodactyl memory ceiling
+
+- Added read-only `esnjarvis customers plan` that verifies node UUID/identity, allocation totals and physical RAM, proposes an 8192 MiB customer ON/OFF difference with at least 4096 MiB outside the node quota, and refuses plans that could undercut current customer allocations.
+- A current node memory ceiling of `4294967295 MiB` is unrealistic on a 24032 MiB physical host; previous `customers enable` is intentionally blocked. The planner does not automatically lower limits or alter running servers.
+- If owner approves after inspection, they can separately correct the node limit; only then should the existing customer-first enable flow be considered. See [Step 59](STEP59_NODE_RAM_PLAN.md).

@@ -107,6 +107,34 @@ class CustomerCapacityTests(unittest.TestCase):
             self.addCleanup(p.stop)
         power.prepare_dir()
 
+    def test_readonly_safety_planner_handles_massively_oversized_node(self):
+        self.panel.id = 3
+        self.panel.memory = 4294967295
+        self.panel.allocated = 9216
+        with patch.object(cap, "_total_mib", return_value=24032):
+            proposal = cap.print_safe_plan()
+        self.assertEqual(proposal["suggested_on_mib"], 11264)
+        self.assertEqual(proposal["suggested_off_mib"], 19456)
+        self.assertEqual(proposal["remaining_host_off_mib"], 4576)
+        self.assertEqual(proposal["extra_customer_off_mib"], 8192)
+        self.assertTrue(proposal["current_node_is_oversized"])
+        self.assertEqual(self.panel.patches, [])
+        self.assertFalse(self.conf.exists())
+
+    def test_planner_refuses_to_reduce_below_existing_customer_allocations(self):
+        self.panel.memory = 4294967295
+        self.panel.allocated = 12000
+        with patch.object(cap, "_total_mib", return_value=24032):
+            with self.assertRaisesRegex(RuntimeError, "do not reduce|Do not reduce"):
+                cap.plan_safe_limits()
+        self.assertEqual(self.panel.patches, [])
+
+    def test_planner_refuses_memory_overallocation(self):
+        self.panel.overallocate = 10
+        with self.assertRaisesRegex(RuntimeError, "overallocation"):
+            cap.print_safe_plan()
+        self.assertEqual(self.panel.patches, [])
+
     def test_readonly_check_and_enable_never_modify_panel(self):
         plan = cap.check()
         self.assertEqual(plan["extra_mib"],8192)
